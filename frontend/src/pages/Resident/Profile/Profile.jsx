@@ -5,6 +5,7 @@ import axiosIntance from "../../../components/auth/axiosInstance";
 import {
   User,
   Phone,
+  Mail,
   MapPin,
   Calendar,
   FileText,
