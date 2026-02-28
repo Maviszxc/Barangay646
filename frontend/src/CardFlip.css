@@ -1,0 +1,75 @@
+.scene {
+  width: 100%;
+  max-width: 400px;
+  height: 500px;
+  perspective: 1000px;
+  margin: 0 auto;
+}
+
+.card {
+  width: 100%;
+  height: 125%;
+  position: relative;
+  transition: transform 0.6s;
+  transform-style: preserve-3d;
+}
+
+.card.is-flipped {
+  transform: rotateY(180deg);
+}
+
+.card.status-mode {
+  height: 100%;
+  transform: none;
+}
+
+.card__face {
+  position: absolute;
+  margin-top: 1%;
+  width: 100%;
+  height: auto;
+  min-height: 400px;
+  backface-visibility: hidden;
+  border-radius: 10px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+  overflow: hidden;
+}
+
+.card__face--front {
+  background-color: white;
+}
+
+.card__face--back {
+  margin-top: -13%;
+  background-color: white;
+  transform: rotateY(180deg);
+  display: flex;
+  flex-direction: column;
+  min-height: 500px;
+  height: auto;
+}
+
+.card__face--status {
+  background-color: white;
+  transform: rotateY(0deg); /* Changed from 180deg to 0deg */
+  display: flex;
+  flex-direction: column;
+  min-height: 500px;
+  height: auto;
+  margin-top: 0;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  z-index: 0;
+}
+
+.card__face--status.is-flipped {
+  opacity: 1;
+  z-index: 2; /* Increased z-index to ensure it's on top */
+}
+
+.status-card {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  width: 100%;
+}

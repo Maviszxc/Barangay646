@@ -1,0 +1,69 @@
+{
+  "barangay": "Barangay 646",
+  "zone": "Zone 67",
+  "district": "San Miguel",
+  "city": "Manila",
+  "psgc": "1380607010",
+  "population2020": {
+    "value": 918,
+    "source": "https://www.philatlas.com/luzon/ncr/manila/barangay-646.html"
+  },
+  "population2015": {
+    "value": 867,
+    "source": "https://www.philatlas.com/luzon/ncr/manila/barangay-646.html"
+  },
+  "growthRate": {
+    "value": 1.21,
+    "unit": "% per year",
+    "source": "https://www.philatlas.com/luzon/ncr/manila/barangay-646.html"
+  },
+  "households2015": {
+    "value": 249,
+    "source": "https://www.philatlas.com/luzon/ncr/manila/barangay-646.html"
+  },
+  "avgHouseholdSize": {
+    "value": 3.48,
+    "source": "https://www.philatlas.com/luzon/ncr/manila/barangay-646.html"
+  },
+  "ageDistribution2015": {
+    "0-14": {
+      "value": 199,
+      "source": "https://marikina.gov.ph/facts/Ecological-Profile.pdf"
+    },
+    "15-64": {
+      "value": 676,
+      "source": "https://marikina.gov.ph/facts/Ecological-Profile.pdf"
+    },
+    "65+": {
+      "value": 28,
+      "source": "https://marikina.gov.ph/facts/Ecological-Profile.pdf"
+    }
+  },
+  "dependencyRatio": {
+    "youth": {
+      "value": 32.05,
+      "unit": "%",
+      "source": "https://marikina.gov.ph/facts/Ecological-Profile.pdf"
+    },
+    "oldAge": {
+      "value": 7.57,
+      "unit": "%",
+      "source": "https://marikina.gov.ph/facts/Ecological-Profile.pdf"
+    },
+    "total": {
+      "value": 39.62,
+      "unit": "%",
+      "source": "https://marikina.gov.ph/facts/Ecological-Profile.pdf"
+    }
+  },
+  "medianAge2015": {
+    "value": 28.19,
+    "source": "https://marikina.gov.ph/facts/Ecological-Profile.pdf"
+  },
+  "registeredVoters": {
+    "value": 660,
+    "source": "https://psa.gov.ph/system/files/phcd/NCR.xlsx"
+  },
+  "notes": "Population decreased from 1,404 in 1990 to 918 in 2020.",
+  "overallSource": "https://www.philatlas.com/luzon/ncr/manila/barangay-646.html"
+}

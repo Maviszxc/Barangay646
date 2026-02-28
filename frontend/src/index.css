@@ -1,0 +1,37 @@
+/** @format */
+@import "tailwindcss";
+
+:root {
+  font-family: 'Poppins', system-ui, Avenir, Helvetica, Arial, sans-serif;
+  line-height: 1.5;
+  font-weight: 400;
+
+  color-scheme: light;
+  color: #111827;
+  background-color: #FFFFFF;
+
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+/* Prevent text cursor (caret) from appearing on non-input elements */
+*:not(input):not(textarea):not([contenteditable="true"]) {
+  caret-color: transparent;
+}
+
+.dotted-bg {
+  background-image: url('./assets/dotted-bg.svg');
+  background-repeat: repeat;
+  background-size: 20px 20px;
+  outline: #b9b9b9 dotted 1px;
+
+}
+
