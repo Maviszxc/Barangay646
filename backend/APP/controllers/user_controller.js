@@ -481,7 +481,7 @@ const getUserProfile = async (req, res) => {
     const userId = req.user.userId; // From auth middleware
 
     const user = await User.findById(userId).select(
-      "firstName lastName phoneNumber address houseNumber birthdate createdAt notificationPreferences isVerified alreadyAnswered isHeadofFamily idImage"
+      "firstName lastName phoneNumber email address houseNumber birthdate createdAt notificationPreferences isVerified alreadyAnswered isHeadofFamily idImage"
     );
 
     if (!user) {
@@ -493,6 +493,7 @@ const getUserProfile = async (req, res) => {
 
     res.json({
       fullName: `${user.firstName} ${user.lastName}`,
+      email: user.email,
       contact: user.phoneNumber,
       address: user.address,
       houseNumber: user.houseNumber,

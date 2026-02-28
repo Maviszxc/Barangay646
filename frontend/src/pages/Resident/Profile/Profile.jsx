@@ -85,6 +85,7 @@ const Profile = () => {
         const response = await axiosIntance.get("/user/profile");
         setUser({
           fullName: response.data.fullName,
+          email: response.data.email,
           address: response.data.address,
           houseNumber: response.data.houseNumber,
           contact: response.data.contact,
@@ -828,6 +829,8 @@ const Profile = () => {
                                       ? "bg-green-100 text-green-800"
                                       : request.status === "Pending"
                                       ? "bg-yellow-100 text-yellow-800"
+                                      : request.status === "Resolved"
+                                      ? "bg-blue-100 text-blue-800"
                                       : "bg-red-100 text-red-800"
                                   }`}
                                 >
@@ -835,6 +838,8 @@ const Profile = () => {
                                     <CheckCircle className="w-3 h-3" />
                                   ) : request.status === "Pending" ? (
                                     <Clock className="w-3 h-3" />
+                                  ) : request.status === "Resolved" ? (
+                                    <CheckCircle className="w-3 h-3" />
                                   ) : (
                                     <XCircle className="w-3 h-3" />
                                   )}

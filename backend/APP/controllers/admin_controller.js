@@ -395,7 +395,7 @@ const getAdminActivityLogs = async (req, res) => {
           log;
         const adminRole = log.adminId?.role || "Admin";
         const userName = log.userId
-          ? `${log.userId.firstName}`
+          ? `${log.userId.firstName} ${log.userId.lastName}`
           : "Unknown User";
         const formattedDate = new Date(createdAt).toLocaleDateString("en-US");
 
@@ -417,8 +417,17 @@ const getAdminActivityLogs = async (req, res) => {
           case "PostEvent":
             message = `${adminRole} has posted an event: ${EventTitle} `;
             break;
+          case "UPDATE_BLOTTER_STATUS":
+            message = `${adminRole} has updated e-blotter status for ${userName} `;
+            break;
+          case "UPDATE_CONTENT":
+            message = `${adminRole} has updated content `;
+            break;
+          case "UpdateAboutPage":
+            message = `${adminRole} has updated about page `;
+            break;
           default:
-            message = `${adminRole} performed an unknown action for ${userName} `;
+            message = `${adminRole} performed an action for ${userName} `;
         }
 
         return {
