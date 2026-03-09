@@ -1746,12 +1746,77 @@ const Reports = () => {
     }
   };
 
+  // Transform functions for new charts
+  const transformCivilStatusData = (civilStats) => {
+    if (!civilStats || !Array.isArray(civilStats)) {
+      return { labels: [], datasets: [] };
+    }
+
+    const labels = civilStats.map(item => item.status || 'Unknown');
+    const data = civilStats.map(item => item.count || 0);
+    const colors = ['#3b82f6', '#ef4444', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899'];
+
+    return {
+      labels,
+      datasets: [{
+        data,
+        backgroundColor: colors.slice(0, labels.length),
+        borderWidth: 2,
+        borderColor: '#ffffff',
+      }],
+    };
+  };
+
+  const transformOccupationData = (occupationStats) => {
+    if (!occupationStats || !Array.isArray(occupationStats)) {
+      return { labels: [], datasets: [] };
+    }
+
+    const labels = occupationStats.map(item => item.occupation || 'Unknown');
+    const data = occupationStats.map(item => item.count || 0);
+    const colors = ['#06b6d4', '#84cc16', '#f97316', '#a855f7', '#f43f5e', '#6366f1'];
+
+    return {
+      labels,
+      datasets: [{
+        data,
+        backgroundColor: colors.slice(0, labels.length),
+        borderWidth: 2,
+        borderColor: '#ffffff',
+      }],
+    };
+  };
+
+  const transformAgeGroupDistribution = (ageData) => {
+    if (!ageData || !Array.isArray(ageData)) {
+      return { labels: [], datasets: [] };
+    }
+
+    const labels = ageData.map(item => item.group || 'Unknown');
+    const totalData = ageData.map(item => (item.male || 0) + (item.female || 0) + (item.lgbtq || 0));
+
+    return {
+      labels,
+      datasets: [{
+        label: 'Total Population',
+        data: totalData,
+        backgroundColor: 'rgba(99, 102, 241, 0.8)',
+        borderColor: 'rgb(99, 102, 241)',
+        borderWidth: 2,
+        borderRadius: 6,
+      }],
+    };
+  };
+
   // Memoized computed data - USING ACTUAL BACKEND DATA
   const {
     ageChartConfig,
     genderChartConfig,
     employmentChartConfig,
     voterChartConfig,
+    civilStatusChartConfig,
+    occupationChartConfig,
+    ageGroupDistributionConfig,
   } = useMemo(() => {
     const ageData = dashboardData.ageDistribution?.chartData || [];
     console.log("Processing age data:", ageData);
@@ -1760,6 +1825,7 @@ const Reports = () => {
     const ageGroups = ageData.map((item) => item?.group).filter(Boolean) || [];
     const maleData = ageData.map((item) => -(item?.male || 0)); // Negative for left side
     const femaleData = ageData.map((item) => item?.female || 0);
+    const lgbtqData = ageData.map((item) => item?.lgbtq || 0);
 
     // Use actual backend data for charts
     const ageChartConfig = {
@@ -1781,6 +1847,14 @@ const Reports = () => {
           borderWidth: 1,
           borderRadius: 4,
         },
+        {
+          label: "LGBTQ+",
+          data: lgbtqData,
+          backgroundColor: "#9333ea", // Purple color for LGBTQ+
+          borderColor: "#9333ea",
+          borderWidth: 1,
+          borderRadius: 4,
+        },
       ],
     };
 
@@ -1790,11 +1864,19 @@ const Reports = () => {
     );
     const voterChartConfig = transformVoterData(dashboardData.voterStats);
 
+    // New chart configurations
+    const civilStatusChartConfig = transformCivilStatusData(dashboardData.civilStatusStats);
+    const occupationChartConfig = transformOccupationData(dashboardData.occupationStats);
+    const ageGroupDistributionConfig = transformAgeGroupDistribution(ageData);
+
     return {
       ageChartConfig,
       genderChartConfig,
       employmentChartConfig,
       voterChartConfig,
+      civilStatusChartConfig,
+      occupationChartConfig,
+      ageGroupDistributionConfig,
     };
   }, [dashboardData]);
 
@@ -2389,6 +2471,106 @@ const Reports = () => {
               <p className="text-xs text-gray-600">
                 Click on any bar to view residents
               </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Additional Charts Row 2 */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mt-8">
+          {/* Civil Status Distribution */}
+          <div className="bg-white rounded-2xl p-6 shadow-lg border border-gray-100">
+            <div className="flex items-center gap-2 mb-4">
+              <Heart className="w-5 h-5 text-pink-600" />
+              <h4 className="font-semibold text-gray-900">Civil Status</h4>
+            </div>
+            <div className="h-64">
+              {civilStatusChartConfig.labels && civilStatusChartConfig.labels.length > 0 ? (
+                <Pie
+                  data={civilStatusChartConfig}
+                  options={{
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                      legend: {
+                        position: 'bottom',
+                      },
+                    },
+                  }}
+                />
+              ) : (
+                <div className="flex items-center justify-center h-full text-gray-500">
+                  No civil status data available
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Occupation Distribution */}
+          <div className="bg-white rounded-2xl p-6 shadow-lg border border-gray-100">
+            <div className="flex items-center gap-2 mb-4">
+              <Briefcase className="w-5 h-5 text-orange-600" />
+              <h4 className="font-semibold text-gray-900">Occupations</h4>
+            </div>
+            <div className="h-64">
+              {occupationChartConfig.labels && occupationChartConfig.labels.length > 0 ? (
+                <Doughnut
+                  data={occupationChartConfig}
+                  options={{
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                      legend: {
+                        position: 'bottom',
+                      },
+                    },
+                  }}
+                />
+              ) : (
+                <div className="flex items-center justify-center h-full text-gray-500">
+                  No occupation data available
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Age Group Distribution */}
+          <div className="bg-white rounded-2xl p-6 shadow-lg border border-gray-100">
+            <div className="flex items-center gap-2 mb-4">
+              <BarChart3 className="w-5 h-5 text-indigo-600" />
+              <h4 className="font-semibold text-gray-900">Age Group Distribution</h4>
+            </div>
+            <div className="h-64">
+              {ageGroupDistributionConfig.labels && ageGroupDistributionConfig.labels.length > 0 ? (
+                <Bar
+                  data={ageGroupDistributionConfig}
+                  options={{
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                      y: {
+                        beginAtZero: true,
+                        grid: {
+                          color: '#f3f4f6',
+                        },
+                      },
+                      x: {
+                        grid: {
+                          display: false,
+                        },
+                      },
+                    },
+                    plugins: {
+                      legend: {
+                        display: false,
+                      },
+                    },
+                  }}
+                />
+              ) : (
+                <div className="flex items-center justify-center h-full text-gray-500">
+                  No age group data available
+                </div>
+              )}
             </div>
           </div>
         </div>

@@ -664,6 +664,150 @@ const updateBlotterStatus = async (req, res) => {
 
     // Update status
     request.status = status;
+    
+    // Generate PDF if status is being set to Approved or Resolved and PDF doesn't exist yet
+    if ((status === "Approved" || status === "Resolved") && !request.adminGeneratedFile) {
+      console.log(`📄 Generating PDF for e-blotter ${requestId} - Status: ${status}`);
+      
+      // Get certificate configuration
+      const certificateMap = {
+        e_blotter: {
+          file: "e_blotter.pdf",
+          adminFile: "admin_e_blotter.pdf",
+          fields: [
+            "date",
+            "fullName_nagrereklamo",
+            "tirahan_nagrereklamo",
+            "contact_nagrereklamo",
+            "edad_nagrereklamo",
+            "fullName_nireklamo",
+            "tirahan_nireklamo",
+            "contact_nireklamo",
+            "edad_nireklamo",
+            "reklamo",
+            "date_pangyayari",
+            "oras_pangyayari",
+            "lugar_pangyayari",
+            "salaysay",
+            "fullName_testigo",
+            "tirahan_testigo",
+            "contact_testigo",
+          ],
+        },
+      };
+      
+      const config = certificateMap[request.certificateType];
+      
+      // Prepare field values (reuse existing logic)
+      const fullName = request.isForSelf
+        ? `${request.userId.firstName} ${request.userId.lastName}`
+        : `${request.forPerson.firstName} ${request.forPerson.lastName}`;
+      
+      const userAddress = request.userId.address || "Not provided";
+      const userContact = request.userId.phoneNumber || "Not provided";
+      const userAge = request.userId.birthdate
+        ? `${Math.floor((new Date() - new Date(request.userId.birthdate)) / (365.25 * 24 * 60 * 60 * 1000))} years old`
+        : "Not provided";
+      
+      let fieldValues = {
+        fullName,
+        purpose: request.purpose,
+        business: request.businessName || request.purpose,
+        date: formatFancyDate(new Date()),
+      };
+      
+      // Add E-Blotter specific field values
+      if (request.certificateType === "e_blotter" && request.certificateData?.eBlotter) {
+        const eBlotterData = request.certificateData.eBlotter;
+        const complainantName = eBlotterData.complainantName || fullName;
+        const complainantAddress = eBlotterData.complainantAddress || userAddress;
+        const complainantContact = eBlotterData.complainantContact || userContact;
+        const complainantAge = eBlotterData.complainantAge || userAge;
+
+        fieldValues = {
+          ...fieldValues,
+          date: formatFancyDate(new Date()),
+          fullName_nagrereklamo: complainantName,
+          tirahan_nagrereklamo: complainantAddress,
+          contact_nagrereklamo: complainantContact,
+          edad_nagrereklamo: complainantAge,
+          fullName_nireklamo: eBlotterData.respondentName || "Not provided",
+          tirahan_nireklamo: eBlotterData.respondentAddress || "Not provided",
+          contact_nireklamo: eBlotterData.respondentContact || "Not provided",
+          edad_nireklamo: eBlotterData.respondentAge || "Not provided",
+          reklamo: eBlotterData.complaint || eBlotterData.incidentDetails || "No complaint details provided",
+          date_pangyayari: eBlotterData.incidentDate ? formatFancyDate(new Date(eBlotterData.incidentDate)) : "Not provided",
+          oras_pangyayari: eBlotterData.incidentTime ? formatTime(eBlotterData.incidentTime) : "Not provided",
+          lugar_pangyayari: eBlotterData.incidentLocation || "Not provided",
+          salaysay: eBlotterData.narrative || eBlotterData.incidentDetails || "No narrative provided",
+          fullName_testigo: eBlotterData.witnessName || "Not provided",
+          tirahan_testigo: eBlotterData.witnessAddress || "Not provided",
+          contact_testigo: eBlotterData.witnessContact || "Not provided",
+        };
+      }
+      
+      // Function to generate and upload PDF (reuse existing logic)
+      const generateAndUploadPDF = async (templateFileName, fileNameSuffix) => {
+        try {
+          const templatePath = path.join(__dirname, "../templates", templateFileName);
+          
+          if (!fs.existsSync(templatePath)) {
+            throw new Error(`Template file not found: ${templateFileName}`);
+          }
+          
+          const pdfBytes = fs.readFileSync(templatePath);
+          const pdfDoc = await PDFDocument.load(pdfBytes);
+          const form = pdfDoc.getForm();
+          
+          // Fill all PDF fields
+          for (const field of config.fields) {
+            const textField = form.getTextField(field);
+            if (textField) {
+              const fieldValue = fieldValues[field] || "";
+              textField.setText(fieldValue);
+            }
+          }
+          
+          // Save the PDF
+          const pdfBytesModified = await pdfDoc.save();
+          
+          // Upload to Supabase
+          const supabase = getSupabaseClient();
+          const fileName = `${request.certificateType}_${requestId}_${fileNameSuffix}_${Date.now()}.pdf`;
+          
+          const { data, error } = await supabase.storage
+            .from("bms646-app")
+            .upload(`certificates/${fileName}`, pdfBytesModified, {
+              contentType: "application/pdf",
+              upsert: true,
+            });
+          
+          if (error) throw error;
+          
+          const { data: publicUrlData } = supabase.storage
+            .from("bms646-app")
+            .getPublicUrl(`certificates/${fileName}`);
+          
+          return publicUrlData.publicUrl;
+        } catch (error) {
+          console.error("PDF generation error:", error);
+          throw error;
+        }
+      };
+      
+      // Generate both user and admin versions
+      const [userFileUrl, adminFileUrl] = await Promise.all([
+        generateAndUploadPDF(config.file, "user"),
+        generateAndUploadPDF(config.adminFile, "admin"),
+      ]);
+      
+      // Save both URLs to the database
+      request.generatedFile = userFileUrl;
+      request.adminGeneratedFile = adminFileUrl;
+      
+      console.log(`✅ PDF generated successfully for e-blotter ${requestId}`);
+    }
+    
     await request.save();
 
     // Log admin activity

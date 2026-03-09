@@ -68,6 +68,19 @@ router.post(
   userController.addHouseholdMember
 );
 
+// Debug endpoint to test authentication
+router.get(
+  "/debug-auth",
+  authenticateToken,
+  (req, res) => {
+    res.json({ 
+      success: true, 
+      user: req.user,
+      message: "Authentication working" 
+    });
+  }
+);
+
 router.put(
   "/update-household-member/:memberId",
   authenticateToken,

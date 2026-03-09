@@ -8,7 +8,7 @@ const jwt = require("jsonwebtoken");
 const bcrypt = require("bcryptjs");
 const User = require("../models/user_model");
 const Approval = require("../models/approval_model");
-const OTP = require("../models/otp_ model");
+// const OTP = require("../models/otp_ model"); // Temporarily commented out to debug
 const Certificate = require("../models/certificate_model");
 const { Census } = require("../models/residentData_model"); // FIXED
 
@@ -791,10 +791,17 @@ const userCencus = async (req, res) => {
 
 const addHouseholdMember = async (req, res) => {
   try {
+    console.log("=== ADD HOUSEHOLD MEMBER START ===");
+    console.log("Raw request body:", req.body);
+    console.log("Request body keys:", Object.keys(req.body));
+    
     const userId = req.user.userId;
+    console.log("User ID:", userId);
+    
     const {
       firstName,
       lastName,
+      email,
       phoneNumber,
       birthdate,
       sex,
@@ -803,37 +810,73 @@ const addHouseholdMember = async (req, res) => {
       employmentStatus,
       voterStatus
     } = req.body;
+    
+    console.log("Destructured values:", { 
+      firstName: firstName ? `"${firstName}"` : 'undefined',
+      lastName: lastName ? `"${lastName}"` : 'undefined', 
+      email: email ? `"${email}"` : 'undefined',
+      phoneNumber: phoneNumber ? `"${phoneNumber}"` : 'undefined',
+      birthdate: birthdate ? `"${birthdate}"` : 'undefined',
+      sex: sex ? `"${sex}"` : 'undefined',
+      civilStatus: civilStatus ? `"${civilStatus}"` : 'undefined',
+      occupation: occupation ? `"${occupation}"` : 'undefined',
+      employmentStatus: employmentStatus ? `"${employmentStatus}"` : 'undefined',
+      voterStatus: voterStatus ? `"${voterStatus}"` : 'undefined'
+    });
+    console.log("Email value received:", email);
+    console.log("Email type:", typeof email);
+    console.log("Email is truthy:", !!email);
 
+    console.log("Finding current user...");
     const currentUser = await User.findById(userId);
-    if (!currentUser || !currentUser.isHeadofFamily) {
-      return res.status(403).json({
+    console.log("Current user found:", currentUser ? "YES" : "NO");
+    
+    if (!currentUser) {
+      console.log("ERROR: User not found");
+      return res.status(404).json({
         success: false,
-        message: "Only head of family can add household members"
+        message: "User not found"
       });
     }
 
-    if (!firstName || !lastName || !phoneNumber || !birthdate) {
+    if (!firstName || !lastName || !email || !phoneNumber || !birthdate) {
+      console.log("ERROR: Missing required fields");
       return res.status(400).json({
         success: false,
-        message: "First name, last name, phone number, and birthdate are required"
+        message: "First name, last name, email, phone number, and birthdate are required"
       });
     }
 
+    console.log("Checking for existing user with phone number...");
     const existingUser = await User.findOne({ phoneNumber });
     if (existingUser) {
+      console.log("ERROR: Phone number already registered");
       return res.status(400).json({
         success: false,
         message: "Phone number already registered"
       });
     }
 
+    console.log("Checking for existing user with email...");
+    const existingEmail = await User.findOne({ email });
+    if (existingEmail) {
+      console.log("ERROR: Email already registered");
+      return res.status(400).json({
+        success: false,
+        message: "Email already registered"
+      });
+    }
+
+    console.log("Generating password and hashing...");
     const tempPassword = Math.random().toString(36).slice(-8);
     const hashedPassword = await bcrypt.hash(tempPassword, 10);
 
+    console.log("Creating new user...");
     const newMember = new User({
       firstName,
       lastName,
       phoneNumber,
+      email,
       password: hashedPassword,
       birthdate: new Date(birthdate),
       address: currentUser.address,
@@ -850,15 +893,17 @@ const addHouseholdMember = async (req, res) => {
       },
     });
 
+    console.log("Saving new user...");
     await newMember.save();
+    console.log("New user saved successfully");
 
-    const Census = require("../models/residentData_model").Census;
+    console.log("Creating census record...");
     const newCensus = new Census({
       userId: newMember._id,
       fullName: `${firstName} ${lastName}`,
       age: calculateAgeFromBirthdate(birthdate),
       placeOfBirth: "Not Specified", // Default value for household members
-      sex: sex || "Not Specified",
+      sex: sex || "Male", // Use valid enum value as default
       civilStatus: civilStatus || "Single",
       citizenship: "Filipino", // Default citizenship
       occupation: occupation || "Not Specified",
@@ -867,10 +912,14 @@ const addHouseholdMember = async (req, res) => {
       isHeadOfFamily: false,
       address: currentUser.address,
       houseNumber: currentUser.houseNumber,
+      birthdate: new Date(birthdate), // Add birthdate to census
     });
 
+    console.log("Saving census record...");
     await newCensus.save();
+    console.log("Census record saved successfully");
 
+    console.log("=== ADD HOUSEHOLD MEMBER SUCCESS ===");
     res.status(201).json({
       success: true,
       message: "Household member added successfully",
@@ -884,7 +933,9 @@ const addHouseholdMember = async (req, res) => {
       },
     });
   } catch (error) {
-    console.error("Error adding household member:", error);
+    console.error("=== ADD HOUSEHOLD MEMBER ERROR ===");
+    console.error("Error details:", error);
+    console.error("Error stack:", error.stack);
     res.status(500).json({
       success: false,
       message: "Server error",

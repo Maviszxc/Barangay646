@@ -170,9 +170,24 @@ const Requests = () => {
           setPendingRequests(response.data.requests);
           setLoadedTabs((prev) => ({ ...prev, pending: true }));
         } else if (tab === "approved") {
-          const latestRequests = getLatestRequestsByType(
-            response.data.requests
-          );
+          let approvedData = response.data.requests;
+
+          // Also fetch resolved e-blotter requests and include them
+          try {
+            const resolvedResponse = await axiosInstance.get(
+              "/certificate/check-status?status=Resolved"
+            );
+            const resolvedEBlotterRequests = resolvedResponse.data.requests.filter(
+              (request) => request.certificateType === "e_blotter"
+            );
+            approvedData = [...approvedData, ...resolvedEBlotterRequests];
+          } catch (err) {
+            console.log(
+              "No resolved requests found or error fetching resolved requests"
+            );
+          }
+
+          const latestRequests = getLatestRequestsByType(approvedData);
           setApprovedRequests(latestRequests);
           setLoadedTabs((prev) => ({ ...prev, approved: true }));
         } else if (tab === "rejected") {
@@ -669,6 +684,25 @@ const Requests = () => {
     setScale(1.0);
   };
 
+  const handleDownload = (fileUrl, fileName) => {
+    try {
+      // Create a temporary anchor element
+      const link = document.createElement("a");
+      link.href = fileUrl;
+      link.download = fileName;
+      link.target = "_blank";
+
+      // Append to body, click, and remove
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } catch (error) {
+      console.error("Download error:", error);
+      // Fallback: open in new tab
+      window.open(fileUrl, "_blank");
+    }
+  };
+
   // const handleDownload = (documentUrl) => {
   //   try {
   //     // Open the document in a new tab instead of downloading directly
@@ -924,13 +958,33 @@ const Requests = () => {
                                 <span className="px-3 py-1 bg-green-100 text-green-800 rounded-full text-xs flex items-center gap-1">
                                   <CheckCircle className="w-3 h-3" /> Approved
                                 </span>
-                                {/* Removed download button */}
+                                {request.certificateType === "e_blotter" && (
+                                  request.generatedFile ? (
+                                    <a
+                                      href={request.generatedFile}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-xs flex items-center gap-1 hover:bg-blue-200 cursor-pointer"
+                                    >
+                                      <Download className="w-3 h-3" /> Download
+                                    </a>
+                                  ) : (
+                                    <span className="px-3 py-1 bg-gray-100 text-gray-600 rounded-full text-xs flex items-center gap-1">
+                                      <Clock className="w-3 h-3" /> Processing
+                                    </span>
+                                  )
+                                )}
                               </div>
                             </div>
 
                             <div
                               className="border rounded-lg overflow-hidden bg-gray-50 cursor-pointer hover:shadow-md transition-all relative group"
-                              onClick={() => handleOpenPdfPreview(request.file)}
+                              onClick={() => {
+                                const fileToPreview = request.certificateType === "e_blotter" 
+                                  ? (request.generatedFile || '/backend/APP/templates/e_blotter.pdf')
+                                  : request.file;
+                                handleOpenPdfPreview(fileToPreview);
+                              }}
                             >
                               <div className="absolute inset-0 bg-opacity-0 group-hover:bg-opacity-20 flex items-center justify-center transition-all z-10">
                                 <div className="bg-white p-2 rounded-full opacity-0 group-hover:opacity-100 transform scale-90 group-hover:scale-100 transition-all">

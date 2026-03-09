@@ -2,6 +2,8 @@ import { useState, useEffect } from "react";
 import Loader from "../../../components/Loader";
 import { toast } from "react-toastify";
 import axiosInstance from "../../../components/auth/axiosInstance";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 import {
   Clock,
   CheckCircle2,
@@ -15,6 +17,8 @@ import {
   Users,
   UserCheck,
   Files,
+  FileDown,
+  BarChart3,
 } from "lucide-react";
 import AddRequestModal from "../../../components/modals/AddRequestModal";
 
@@ -33,6 +37,7 @@ const Request = () => {
   const [viewedRequest, setViewedRequest] = useState(null);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [certType, setCertType] = useState("");
+  const [exporting, setExporting] = useState(false);
 
   useEffect(() => {
     fetchRequests();
@@ -152,6 +157,25 @@ const Request = () => {
     setViewModal(false);
   };
 
+  const handleDownload = async (fileUrl, fileName) => {
+    try {
+      // Create a temporary anchor element
+      const link = document.createElement("a");
+      link.href = fileUrl;
+      link.download = fileName;
+      link.target = "_blank";
+
+      // Append to body, click, and remove
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } catch (error) {
+      console.error("Download error:", error);
+      // Fallback: open in new tab
+      window.open(fileUrl, "_blank");
+    }
+  };
+
   const handleConfirmReject = async () => {
     if (rejectionReasons.length === 0) {
       toast.error("Please select at least one reason for rejection");
@@ -176,25 +200,6 @@ const Request = () => {
       setRejecting(false); // Set rejecting state to false
       setProcessingId(null);
     }
-
-    const handleDownload = async (fileUrl, fileName) => {
-      try {
-        // Create a temporary anchor element
-        const link = document.createElement("a");
-        link.href = fileUrl;
-        link.download = fileName;
-        link.target = "_blank";
-
-        // Append to body, click, and remove
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-      } catch (error) {
-        console.error("Download error:", error);
-        // Fallback: open in new tab
-        window.open(fileUrl, "_blank");
-      }
-    };
   };
 
   const handleCancelReject = () => {
@@ -294,6 +299,115 @@ const Request = () => {
     }));
   };
 
+  // PDF Export Function for Certificate Requests
+  const exportRequestsToPDF = async () => {
+    setExporting(true);
+    try {
+      const doc = new jsPDF();
+      
+      // Get current data based on active section and tab
+      const currentData = activeSection === "Certificates" ? requests : blotterRequests;
+      const reportTitle = activeSection === "Certificates" 
+        ? `Certificate Requests - ${activeTab}` 
+        : `E-Blotter Requests - ${activeTab}`;
+      
+      // Add title
+      doc.setFontSize(18);
+      doc.setFont("helvetica", "bold");
+      doc.text(reportTitle, 105, 20, { align: "center" });
+      
+      // Add date generated
+      doc.setFontSize(10);
+      doc.setFont("helvetica", "normal");
+      doc.text(`Generated on: ${new Date().toLocaleDateString()}`, 105, 30, { align: "center" });
+      
+      // Add summary statistics
+      const totalRequests = currentData.length;
+      const approvedCount = currentData.filter(req => req.status === "Approved" || req.status === "Resolved").length;
+      const pendingCount = currentData.filter(req => req.status === "Pending").length;
+      const rejectedCount = currentData.filter(req => req.status === "Rejected").length;
+      
+      doc.setFontSize(12);
+      doc.setFont("helvetica", "bold");
+      doc.text("Summary Statistics", 14, 50);
+      
+      doc.setFontSize(10);
+      doc.setFont("helvetica", "normal");
+      doc.text(`Total Requests: ${totalRequests}`, 14, 58);
+      doc.text(`Approved/Resolved: ${approvedCount}`, 14, 65);
+      doc.text(`Pending: ${pendingCount}`, 14, 72);
+      doc.text(`Rejected: ${rejectedCount}`, 14, 79);
+      
+      // Prepare table data
+      const tableData = currentData.map((request, index) => [
+        index + 1,
+        `${request.firstName} ${request.lastName}`,
+        request.certificateType === "brgy_clearance" ? "Barangay Clearance" :
+        request.certificateType === "bus_clearance" ? "Business Permit" :
+        request.certificateType === "indigency" ? "Certificate of Indigency" :
+        request.certificateType === "e_blotter" ? "E-Blotter" :
+        request.certificateType,
+        request.purpose || "N/A",
+        request.status,
+        formatDate(request.createdAt)
+      ]);
+      
+      // Add table
+      autoTable(doc, {
+        head: [["#", "Name", "Certificate Type", "Purpose", "Status", "Date Submitted"]],
+        body: tableData,
+        startY: 90,
+        styles: {
+          fontSize: 9,
+          cellPadding: 3,
+        },
+        headStyles: {
+          fillColor: [0, 0, 0],
+          textColor: [255, 255, 255],
+          fontStyle: "bold",
+        },
+        alternateRowStyles: {
+          fillColor: [245, 245, 245],
+        },
+        columnStyles: {
+          0: { cellWidth: 15 }, // #
+          1: { cellWidth: 40 }, // Name
+          2: { cellWidth: 35 }, // Certificate Type
+          3: { cellWidth: 50 }, // Purpose
+          4: { cellWidth: 25 }, // Status
+          5: { cellWidth: 25 }, // Date
+        },
+        didDrawPage: (data) => {
+          // Add footer on each page
+          doc.setFontSize(8);
+          doc.setFont("helvetica", "normal");
+          doc.text(
+            `Page ${doc.internal.getNumberOfPages()}`,
+            data.settings.margin.left,
+            doc.internal.pageSize.height - 10
+          );
+          doc.text(
+            "Barangay Management System - Request Report",
+            doc.internal.pageSize.width - data.settings.margin.right,
+            doc.internal.pageSize.height - 10,
+            { align: "right" }
+          );
+        },
+      });
+      
+      // Save the PDF
+      const fileName = `${activeSection.toLowerCase()}-requests-${activeTab.toLowerCase()}-${new Date().toISOString().split('T')[0]}.pdf`;
+      doc.save(fileName);
+      
+      toast.success("Report exported successfully!");
+    } catch (error) {
+      console.error("Error exporting PDF:", error);
+      toast.error("Failed to export report");
+    } finally {
+      setExporting(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -340,15 +454,34 @@ const Request = () => {
                 </button>
               </div>
             </div>
-            {activeSection === "Certificates" && (
+            <div className="flex gap-3">
               <button
-                onClick={() => setIsCreateModalOpen(true)}
-                className="px-4 py-2 bg-black text-white rounded-md hover:bg-gray-700 flex items-center gap-2"
+                onClick={exportRequestsToPDF}
+                disabled={exporting || (activeSection === "Certificates" ? requests : blotterRequests).length === 0}
+                className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                <Plus className="w-4 h-4" />
-                Add Request
+                {exporting ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                    Generating...
+                  </>
+                ) : (
+                  <>
+                    <FileDown className="w-4 h-4" />
+                    Export Report
+                  </>
+                )}
               </button>
-            )}
+              {activeSection === "Certificates" && (
+                <button
+                  onClick={() => setIsCreateModalOpen(true)}
+                  className="px-4 py-2 bg-black text-white rounded-md hover:bg-gray-700 flex items-center gap-2"
+                >
+                  <Plus className="w-4 h-4" />
+                  Add Request
+                </button>
+              )}
+            </div>
             <AddRequestModal
               isOpen={isCreateModalOpen}
               onClose={() => setIsCreateModalOpen(false)}
@@ -678,6 +811,28 @@ const Request = () => {
                     </div>
                   )}
 
+                  {certType === "E-Blotter Complaint" && (
+                    <div>
+                      <span className="text-xs text-gray-500 block">
+                        E-Blotter Report:
+                      </span>
+                      {viewedRequest.adminGeneratedFile ? (
+                        <a
+                          href={viewedRequest.adminGeneratedFile}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-blue-800 hover:underline flex items-center gap-1 cursor-pointer mt-1"
+                        >
+                          <Download size={16} />
+                          Download E-Blotter Report
+                        </a>
+                      ) : (
+                        <span className="text-gray-500 text-sm mt-1">
+                          Report not yet generated
+                        </span>
+                      )}
+                    </div>
+                  )}
                   {viewedRequest.status === "Rejected" &&
                     viewedRequest.rejectionMessage && (
                       <div>

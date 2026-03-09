@@ -98,7 +98,7 @@ const About = () => {
               ))}
             </div>
             <div className="md:w-1/2">
-              <img src={brgyHallImg} alt="Barangay Hall" className="w-full h-auto rounded-lg" />
+              <img src={aboutData.heroImageUrl || brgyHallImg} alt="Barangay Hall" className="w-full h-auto rounded-lg" />
             </div>
           </div>
         </div>

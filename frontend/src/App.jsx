@@ -16,6 +16,7 @@ import Login from "./pages/Admin/Login/Login.jsx";
 import Residents from "./pages/Admin/Residents/Residents.jsx";
 import Request from "./pages/Admin/Requests/Requests.jsx";
 import Reports from "./pages/Admin/Reports/Reports.jsx";
+import AdminAbout from "./pages/Admin/About/About.jsx";
 import AdminNavbar from "./components/AdminNavbar";
 import Approvals from "./pages/Admin/Approvals/Approvals.jsx";
 import LandingPage from "./pages/Resident/LandingPage/LandingPage.jsx";
@@ -78,6 +79,7 @@ const AnimatedRoutes = ({ loading }) => {
           <Route path="reports" element={<Reports />} />
           <Route path="approvals" element={<Approvals />} />
           <Route path="events" element={<Events />} />
+          <Route path="about" element={<AdminAbout />} />
           <Route path="profile" element={<AdminProfile />} />
         </Route>
 

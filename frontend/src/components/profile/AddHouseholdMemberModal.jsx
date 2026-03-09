@@ -1,6 +1,6 @@
 /** @format */
 import React, { useState } from "react";
-import axiosIntance from "../auth/axiosInstance";
+import axiosInstance from "../auth/axiosInstance";
 import { toast } from "react-toastify";
 import { X, UserPlus, Phone, Calendar, Users, Briefcase, User } from "lucide-react";
 
@@ -8,6 +8,7 @@ const AddHouseholdMemberModal = ({ onClose, onSuccess }) => {
   const [formData, setFormData] = useState({
     firstName: "",
     lastName: "",
+    email: "",
     phoneNumber: "",
     birthdate: "",
     sex: "",
@@ -31,14 +32,15 @@ const AddHouseholdMemberModal = ({ onClose, onSuccess }) => {
     e.preventDefault();
     
     // Validate required fields
-    if (!formData.firstName || !formData.lastName || !formData.phoneNumber || !formData.birthdate) {
+    if (!formData.firstName || !formData.lastName || !formData.email || !formData.phoneNumber || !formData.birthdate) {
       toast.error("Please fill in all required fields");
       return;
     }
 
     setLoading(true);
+    console.log("Form data being submitted:", formData);
     try {
-      const response = await axiosIntance.post("/user/add-household-member", formData);
+      const response = await axiosInstance.post("/user/add-household-member", formData);
       
       if (response.data.success) {
         toast.success("Household member added successfully!");
@@ -57,6 +59,8 @@ const AddHouseholdMemberModal = ({ onClose, onSuccess }) => {
       }
     } catch (error) {
       console.error("Error adding household member:", error);
+      console.error("Error response data:", error?.response?.data);
+      console.error("Error status:", error?.response?.status);
       toast.error(error?.response?.data?.message || "Failed to add household member");
     } finally {
       setLoading(false);
@@ -125,6 +129,25 @@ const AddHouseholdMemberModal = ({ onClose, onSuccess }) => {
               </div>
             </div>
 
+            {/* Email */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Email *
+              </label>
+              <div className="relative">
+                <User className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <input
+                  type="email"
+                  name="email"
+                  value={formData.email}
+                  onChange={handleChange}
+                  className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder="Enter email address"
+                  required
+                />
+              </div>
+            </div>
+
             {/* Phone Number */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -176,6 +199,7 @@ const AddHouseholdMemberModal = ({ onClose, onSuccess }) => {
                 <option value="">Select Sex</option>
                 <option value="Male">Male</option>
                 <option value="Female">Female</option>
+                <option value="LGBTQ+">LGBTQ+</option>
               </select>
             </div>
 

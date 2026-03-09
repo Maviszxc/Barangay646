@@ -12,6 +12,10 @@ const aboutPageSchema = new mongoose.Schema({
     type: String,
     default: "Learn about our community, leadership, and the principles that guide our service to residents",
   },
+  heroImageUrl: {
+    type: String,
+    default: "",
+  },
 
   // History Section
   historyTitle: {

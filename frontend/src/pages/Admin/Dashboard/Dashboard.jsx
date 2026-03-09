@@ -15,6 +15,7 @@ import {
   Bell,
   Edit,
 } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import StatCard from "../../../components/StatCard";
 import QuickActionButton from "../../../components/QuickActionButton";
 import MiniCalendar from "../../../components/MiniCalendar";
@@ -28,9 +29,9 @@ import AddRequestModal from "../../../components/modals/AddRequestModal";
 import AddResidentModal from "../../../components/modals/AddResidentModal";
 import AddEventModal from "../../../components/modals/AddEventModal";
 import AddAnnouncementModal from "../../../components/modals/AddAnnouncementModal";
-import EditAboutPageModal from "../../../components/modals/EditAboutPageModal";
 
 const Dashboard = () => {
+  const navigate = useNavigate();
   const [stat, setStat] = useState(null);
   const [event, setEvent] = useState([]);
   const [announcement, setAnnouncement] = useState([]);
@@ -39,16 +40,11 @@ const Dashboard = () => {
   const [adminLogs, setAdminLogs] = useState([]);
   const [totalLoggedInUsers, setTotalLoggedInUsers] = useState(0);
   const [totalHouseholds, setTotalHouseholds] = useState(0);
-  const [totalRegisteredVoters, setTotalRegisteredVoters] = useState(0);
-
-  // Modal visibility states
+  const [monthlyRequests, setMonthlyRequests] = useState([]);
+  const [showAddAnnouncementModal, setShowAddAnnouncementModal] = useState(false);
+  const [showAddEventModal, setShowAddEventModal] = useState(false);
   const [showAddRequestModal, setShowAddRequestModal] = useState(false);
   const [showAddResidentModal, setShowAddResidentModal] = useState(false);
-  const [showAddEventModal, setShowAddEventModal] = useState(false);
-  const [monthlyRequests, setMonthlyRequests] = useState([]);
-  const [showAddAnnouncementModal, setShowAddAnnouncementModal] =
-    useState(false);
-  const [showEditAboutPageModal, setShowEditAboutPageModal] = useState(false);
 
   const getEventsForDate = (dateStr) =>
     (event ?? []).filter((ev) => ev.date?.slice(0, 10) === dateStr);
@@ -62,7 +58,7 @@ const Dashboard = () => {
   const handleAddResident = () => setShowAddResidentModal(true);
   const handleAddEvent = () => setShowAddEventModal(true);
   const handleAddAnnouncement = () => setShowAddAnnouncementModal(true);
-  const handleEditAboutPage = () => setShowEditAboutPageModal(true);
+  const handleEditAboutPage = () => navigate("/admin/about");
 
   // Prevent background scrolling when modals are open
   useEffect(() => {
@@ -70,8 +66,7 @@ const Dashboard = () => {
       showAddRequestModal ||
       showAddResidentModal ||
       showAddEventModal ||
-      showAddAnnouncementModal ||
-      showEditAboutPageModal
+      showAddAnnouncementModal
     ) {
       document.body.style.overflow = "hidden";
     } else {
@@ -85,7 +80,6 @@ const Dashboard = () => {
     showAddResidentModal,
     showAddEventModal,
     showAddAnnouncementModal,
-    showEditAboutPageModal,
   ]);
 
   useEffect(() => {
@@ -473,15 +467,6 @@ const Dashboard = () => {
             }
           };
           fetchAnnouncements();
-        }}
-      />
-
-      <EditAboutPageModal
-        isOpen={showEditAboutPageModal}
-        onClose={() => setShowEditAboutPageModal(false)}
-        onAboutUpdated={() => {
-          // About page updated successfully
-          toast.success("About page updated successfully!");
         }}
       />
     </div>
