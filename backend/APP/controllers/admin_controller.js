@@ -98,11 +98,11 @@ const addResident = async (req, res) => {
       password,
       birthdate,
       address,
-      houseNumber, // ADD THIS
+      houseNumber,
       gender,
     } = req.body;
 
-    // Validate required fields - UPDATE THIS
+    // Validate required fields
     if (
       !firstName ||
       !lastName ||
@@ -110,23 +110,31 @@ const addResident = async (req, res) => {
       !password ||
       !birthdate ||
       !address ||
-      !houseNumber || // ADD THIS
+      !houseNumber ||
       !gender
     ) {
       return res.status(400).json({ message: "All fields are required" });
     }
 
-    // Check for existing user
-    const existingUser = await User.findOne({ phoneNumber });
-    if (existingUser) {
+    // Check for existing user by phone number
+    const existingUserByPhone = await User.findOne({ phoneNumber });
+    if (existingUserByPhone) {
       return res
         .status(400)
         .json({ message: "Phone number already registered" });
     }
 
-    // Hash password
-    const hashedPassword = await bcrypt.hash(password, 10);
-    
+    // Generate email from phone number since User model requires it
+    const generatedEmail = `user_${phoneNumber}@barangay646.local`;
+
+    // Check for existing user by email
+    const existingUserByEmail = await User.findOne({ email: generatedEmail });
+    if (existingUserByEmail) {
+      return res
+        .status(400)
+        .json({ message: "Email already registered" });
+    }
+
     // Check password complexity
     const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&].{8,}$/;
     
@@ -137,15 +145,19 @@ const addResident = async (req, res) => {
       });
     }
 
-    // Save new user (automatically approved) - UPDATE THIS
+    // Hash password
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    // Save new user (automatically approved)
     const newUser = new User({
       firstName,
       lastName,
       phoneNumber,
+      email: generatedEmail, // Add generated email
       password: hashedPassword,
       birthdate: new Date(birthdate),
       address,
-      houseNumber, // ADD THIS
+      houseNumber,
       gender,
       isRegisteredVoter: false,
       isLoginApproved: true, // Automatically approved
@@ -157,7 +169,7 @@ const addResident = async (req, res) => {
 
     await newUser.save();
 
-    // ✅ Create OTP record (dummy since no verification needed)
+    // Create OTP record (dummy since no verification needed)
     const otpExpiry = new Date(Date.now() + 5 * 60 * 1000); // 5 mins expiry
     await OTP.create({
       phoneNumber,
@@ -166,7 +178,7 @@ const addResident = async (req, res) => {
       expiresAt: otpExpiry,
     });
 
-    // ✅ Create Approval record (auto-approved)
+    // Create Approval record (auto-approved)
     await Approval.create({
       userId: newUser._id,
       status: "approved",
@@ -177,12 +189,15 @@ const addResident = async (req, res) => {
       success: true,
       message: "Resident added successfully",
       user: {
-        _id: newUser._id,
+        id: newUser._id,
         firstName: newUser.firstName,
         lastName: newUser.lastName,
         phoneNumber: newUser.phoneNumber,
+        email: newUser.email,
         address: newUser.address,
-        houseNumber: newUser.houseNumber, // ADD THIS
+        houseNumber: newUser.houseNumber,
+        gender: newUser.gender,
+        isRegisteredVoter: newUser.isRegisteredVoter,
       },
     });
   } catch (error) {

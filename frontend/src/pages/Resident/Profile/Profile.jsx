@@ -95,6 +95,7 @@ const Profile = () => {
           _id: response.data._id,
           idImage: response.data.idImage,
           dataCollectionConsent: response.data.dataCollectionConsent || false,
+          isHeadofFamily: response.data.isHeadofFamily,
         });
 
         // Fetch household info using new backend endpoint for logged-in user
@@ -600,8 +601,7 @@ const Profile = () => {
             <div className="px-6 py-4">
               <div className="border-t border-gray-200 pt-4">
                 {/* Add Member Button - Only show for head of family */}
-                {/* Temporary: Show button for all users for testing */}
-                {true && (
+                {user.isHeadofFamily && (
                   <div className="mb-6">
                     <button
                       onClick={() => setShowAddMemberModal(true)}
@@ -726,8 +726,7 @@ const Profile = () => {
                                 </div>
                                 
                                 {/* Action buttons - Only show for head of family and not for head member */}
-                                {/* Temporary: Show buttons for all users for testing */}
-                                {true && !member.isHeadOfFamily && (
+                                {user.isHeadofFamily && !member.isHeadOfFamily && (
                                   <div className="flex gap-2">
                                     <button
                                       onClick={() => handleEditMember(member)}

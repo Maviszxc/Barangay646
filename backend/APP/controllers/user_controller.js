@@ -839,6 +839,15 @@ const addHouseholdMember = async (req, res) => {
       });
     }
 
+    // Check if current user is head of family
+    if (!currentUser.isHeadofFamily) {
+      console.log("ERROR: User is not head of family");
+      return res.status(403).json({
+        success: false,
+        message: "Only head of family can add household members"
+      });
+    }
+
     if (!firstName || !lastName || !email || !phoneNumber || !birthdate) {
       console.log("ERROR: Missing required fields");
       return res.status(400).json({

@@ -49,9 +49,9 @@ router.post("/test-upload", upload.single('image'), (req, res) => {
 });
 
 // Officials management (specific routes first)
-router.post("/officials/:type", authenticateToken, upload.single('image'), addOfficial); // type: 'officials' or 'kagawads'
-router.put("/officials/:type/:index", authenticateToken, upload.single('image'), updateOfficial);
-router.delete("/officials/:type/:index", authenticateToken, deleteOfficial);
+router.post("/officials/:type", upload.single('image'), addOfficial); // type: 'officials' or 'kagawads'
+router.put("/officials/:type/:index", upload.single('image'), updateOfficial);
+router.delete("/officials/:type/:index", deleteOfficial);
 
 // General section route (must come after specific routes)
 router.put("/:section", authenticateToken, updateAboutSection);

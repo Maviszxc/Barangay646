@@ -23,6 +23,7 @@ const About = () => {
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [pendingImages, setPendingImages] = useState({}); // Store pending image uploads
 
   useEffect(() => {
     const fetchAboutData = async () => {
@@ -74,27 +75,116 @@ const About = () => {
   const handleSave = async () => {
     setSaving(true);
     try {
-      // Create a clean data object without image URLs to prevent payload size issues
+      // First, upload any pending images and get their URLs
+      const imageUploads = [];
+      
+      // Upload hero image if pending
+      if (pendingImages.hero) {
+        const formData = new FormData();
+        formData.append('image', pendingImages.hero);
+        formData.append('heroImage', 'true');
+        
+        try {
+          const response = await axiosInstance.put('/about', formData, {
+            headers: { 'Content-Type': 'multipart/form-data' }
+          });
+          imageUploads.push({ type: 'hero', url: response.data.data.heroImageUrl });
+        } catch (error) {
+          console.error('Error uploading hero image:', error);
+          toast.error('Failed to upload hero image');
+          return;
+        }
+      }
+      
+      // Upload official images if pending
+      for (const [key, file] of Object.entries(pendingImages)) {
+        if (key.startsWith('officials_')) {
+          const index = parseInt(key.split('_')[1]);
+          const formData = new FormData();
+          formData.append('image', file);
+          
+          try {
+            const response = await axiosInstance.put(`/about/officials/officials/${index}`, formData, {
+              headers: { 'Content-Type': 'multipart/form-data' }
+            });
+            imageUploads.push({ type: 'officials', index, url: response.data.data.imageUrl });
+          } catch (error) {
+            console.error(`Error uploading official image at index ${index}:`, error);
+            toast.error(`Failed to upload official image at index ${index}`);
+            return;
+          }
+        } else if (key.startsWith('kagawads_')) {
+          const index = parseInt(key.split('_')[1]);
+          const formData = new FormData();
+          formData.append('image', file);
+          
+          try {
+            const response = await axiosInstance.put(`/about/officials/kagawads/${index}`, formData, {
+              headers: { 'Content-Type': 'multipart/form-data' }
+            });
+            imageUploads.push({ type: 'kagawads', index, url: response.data.data.imageUrl });
+          } catch (error) {
+            console.error(`Error uploading kagawad image at index ${index}:`, error);
+            toast.error(`Failed to upload kagawad image at index ${index}`);
+            return;
+          }
+        }
+      }
+      
+      // Update local state with new image URLs
+      let updatedData = { ...aboutData };
+      
+      imageUploads.forEach(upload => {
+        if (upload.type === 'hero') {
+          updatedData.heroImageUrl = upload.url;
+        } else if (upload.type === 'officials') {
+          if (!updatedData.officials[upload.index]) {
+            updatedData.officials[upload.index] = {};
+          }
+          updatedData.officials[upload.index] = {
+            ...updatedData.officials[upload.index],
+            imageUrl: upload.url
+          };
+        } else if (upload.type === 'kagawads') {
+          if (!updatedData.kagawads[upload.index]) {
+            updatedData.kagawads[upload.index] = {};
+          }
+          updatedData.kagawads[upload.index] = {
+            ...updatedData.kagawads[upload.index],
+            imageUrl: upload.url
+          };
+        }
+      });
+      
+      setAboutData(updatedData);
+      
+      // Now save only the text data (without images) to avoid payload size issues
       const cleanData = {
-        heroTitle: aboutData.heroTitle,
-        heroDescription: aboutData.heroDescription,
-        historyTitle: aboutData.historyTitle,
-        historyContent: aboutData.historyContent,
-        vision: aboutData.vision,
-        mission: aboutData.mission,
-        officials: aboutData.officials.map(official => ({
-          name: official.name,
-          position: official.position,
+        heroTitle: updatedData.heroTitle,
+        heroDescription: updatedData.heroDescription,
+        historyTitle: updatedData.historyTitle,
+        historyContent: updatedData.historyContent,
+        vision: updatedData.vision,
+        mission: updatedData.mission,
+        officials: updatedData.officials.map(official => ({
+          name: official.name || "",
+          position: official.position || "",
+          imageUrl: official.imageUrl || ""
         })),
-        kagawads: aboutData.kagawads.map(kagawad => ({
-          name: kagawad.name,
-          position: kagawad.position,
-          committee: kagawad.committee,
+        kagawads: updatedData.kagawads.map(kagawad => ({
+          name: kagawad.name || "",
+          position: kagawad.position || "",
+          committee: kagawad.committee || "",
+          imageUrl: kagawad.imageUrl || ""
         })),
-        coreValues: aboutData.coreValues,
+        coreValues: updatedData.coreValues,
       };
       
       await axiosInstance.put("/about", cleanData);
+      
+      // Clear pending images after successful save
+      setPendingImages({});
+      
       toast.success("About page updated successfully!");
       setEditing(false);
     } catch (error) {
@@ -105,67 +195,49 @@ const About = () => {
     }
   };
 
-  const handleImageUpload = async (file, type, index = null) => {
+  const handleImageSelect = (file, type, index = null) => {
     if (!file) return;
+
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      toast.error('Please select a valid image file');
+      return;
+    }
+
+    // Validate file size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('Image size should be less than 5MB');
+      return;
+    }
 
     try {
       // Create temporary preview URL
       const tempImageUrl = URL.createObjectURL(file);
+      
+      // Store the file for later upload
+      const imageKey = type === 'hero' ? 'hero' : `${type}_${index}`;
+      setPendingImages(prev => ({
+        ...prev,
+        [imageKey]: file
+      }));
       
       // Update state immediately for preview
       if (type === 'hero') {
         setAboutData(prev => ({ ...prev, heroImageUrl: tempImageUrl }));
       } else if (type === 'officials' || type === 'kagawads') {
         const updatedArray = [...aboutData[type]];
-        updatedArray[index] = { ...updatedArray[index], imageUrl: tempImageUrl };
+        // Preserve all existing data and only update the imageUrl
+        updatedArray[index] = { 
+          ...updatedArray[index], 
+          imageUrl: tempImageUrl 
+        };
         setAboutData(prev => ({ ...prev, [type]: updatedArray }));
       }
 
-      // Create FormData for upload
-      const formData = new FormData();
-      formData.append('image', file);
-      
-      if (type === 'hero') {
-        // Use the same pattern as officials - go to the main endpoint with hero flag
-        formData.append('heroImage', 'true');
-        
-        const response = await axiosInstance.put('/about', formData, {
-          headers: {
-            'Content-Type': 'multipart/form-data',
-          },
-        });
-        
-        // Update only the hero image URL, not the entire state
-        setAboutData(prev => ({ ...prev, heroImageUrl: response.data.data.heroImageUrl }));
-      } else if (type === 'officials' || type === 'kagawads') {
-        // Use the dedicated official image endpoints
-        const response = await axiosInstance.put(`/about/officials/${type}/${index}`, formData, {
-          headers: {
-            'Content-Type': 'multipart/form-data',
-          },
-        });
-        
-        // Update only the specific official/kagawad, not the entire state
-        const updatedArray = [...aboutData[type]];
-        updatedArray[index] = { ...updatedArray[index], imageUrl: response.data.data.imageUrl };
-        setAboutData(prev => ({ ...prev, [type]: updatedArray }));
-      }
-
-      // Clean up temporary URL
-      URL.revokeObjectURL(tempImageUrl);
-
-      toast.success('Image uploaded successfully!');
+      toast.success('Image selected. Will be uploaded when you save changes.');
     } catch (error) {
-      console.error('Error uploading image:', error);
-      toast.error('Failed to upload image');
-
-      // Revert to original data on error by refetching
-      try {
-        const response = await axiosInstance.get("/about");
-        setAboutData(response.data.data);
-      } catch (fetchError) {
-        console.error('Error refetching data:', fetchError);
-      }
+      console.error('Error selecting image:', error);
+      toast.error('Failed to select image');
     }
   };
 
@@ -203,13 +275,23 @@ const About = () => {
 
   const updateOfficial = (index, field, value) => {
     const updated = [...(aboutData.officials || [])];
-    updated[index] = { ...updated[index], [field]: value };
+    updated[index] = { 
+      ...updated[index], 
+      [field]: value,
+      // Preserve existing image URL
+      imageUrl: updated[index].imageUrl || ""
+    };
     setAboutData(prev => ({ ...prev, officials: updated }));
   };
 
   const updateKagawad = (index, field, value) => {
     const updated = [...(aboutData.kagawads || [])];
-    updated[index] = { ...updated[index], [field]: value };
+    updated[index] = { 
+      ...updated[index], 
+      [field]: value,
+      // Preserve existing image URL
+      imageUrl: updated[index].imageUrl || ""
+    };
     setAboutData(prev => ({ ...prev, kagawads: updated }));
   };
 
@@ -372,7 +454,7 @@ const About = () => {
                       accept="image/*"
                       onChange={(e) => {
                         const file = e.target.files[0];
-                        if (file) handleImageUpload(file, 'hero');
+                        if (file) handleImageSelect(file, 'hero');
                       }}
                       className="hidden"
                     />
@@ -452,10 +534,12 @@ const About = () => {
                 )}
                 <div className="relative mb-4">
                   <img
-                    src={official.imageUrl || chairmanImg}
+                    src={official.imageUrl || "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='128' height='128' viewBox='0 0 128 128'%3E%3Crect width='128' height='128' fill='%23e5e7eb'/%3E%3Ctext x='50%25' y='50%25' text-anchor='middle' dy='.3em' fill='%236b7280' font-family='Arial' font-size='14'%3ENo Image%3C/text%3E%3C/svg%3E"}
                     alt={official.name}
                     className="w-32 h-32 rounded-full mx-auto object-cover border-4 border-gray-700"
-                    onError={(e) => { e.target.src = chairmanImg; }}
+                    onError={(e) => { 
+                      e.target.src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='128' height='128' viewBox='0 0 128 128'%3E%3Crect width='128' height='128' fill='%23e5e7eb'/%3E%3Ctext x='50%25' y='50%25' text-anchor='middle' dy='.3em' fill='%236b7280' font-family='Arial' font-size='14'%3ENo Image%3C/text%3E%3C/svg%3E"; 
+                    }}
                   />
                   {editing && (
                     <label className="absolute bottom-0 right-0 bg-blue-600 text-white p-2 rounded-full cursor-pointer hover:bg-blue-700">
@@ -464,7 +548,7 @@ const About = () => {
                         type="file"
                         accept="image/*"
                         className="hidden"
-                        onChange={(e) => handleImageUpload(e.target.files[0], 'officials', index)}
+                        onChange={(e) => handleImageSelect(e.target.files[0], 'officials', index)}
                       />
                     </label>
                   )}
@@ -524,10 +608,12 @@ const About = () => {
                 )}
                 <div className="relative mb-4">
                   <img
-                    src={kagawad.imageUrl || chairmanImg}
+                    src={kagawad.imageUrl || "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='128' height='128' viewBox='0 0 128 128'%3E%3Crect width='128' height='128' fill='%23e5e7eb'/%3E%3Ctext x='50%25' y='50%25' text-anchor='middle' dy='.3em' fill='%236b7280' font-family='Arial' font-size='14'%3ENo Image%3C/text%3E%3C/svg%3E"}
                     alt={kagawad.name}
                     className="w-32 h-32 rounded-full mx-auto object-cover border-4 border-gray-700"
-                    onError={(e) => { e.target.src = chairmanImg; }}
+                    onError={(e) => { 
+                      e.target.src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='128' height='128' viewBox='0 0 128 128'%3E%3Crect width='128' height='128' fill='%23e5e7eb'/%3E%3Ctext x='50%25' y='50%25' text-anchor='middle' dy='.3em' fill='%236b7280' font-family='Arial' font-size='14'%3ENo Image%3C/text%3E%3C/svg%3E"; 
+                    }}
                   />
                   {editing && (
                     <label className="absolute bottom-0 right-0 bg-blue-600 text-white p-2 rounded-full cursor-pointer hover:bg-blue-700">
@@ -536,7 +622,7 @@ const About = () => {
                         type="file"
                         accept="image/*"
                         className="hidden"
-                        onChange={(e) => handleImageUpload(e.target.files[0], 'kagawads', index)}
+                        onChange={(e) => handleImageSelect(e.target.files[0], 'kagawads', index)}
                       />
                     </label>
                   )}

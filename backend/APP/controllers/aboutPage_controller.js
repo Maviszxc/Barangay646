@@ -2,7 +2,7 @@
 
 const AboutPage = require("../models/aboutPage_model");
 const { logAdminActivity } = require("./admin_controller");
-const { getSupabaseClient } = require("../database/supabaseConfig");
+const { uploadToSupabase } = require("../database/supabaseConfig");
 
 // Get about page content
 const getAboutContent = async (req, res) => {
@@ -38,11 +38,18 @@ const updateAboutContent = async (req, res) => {
     if (req.file && req.body.heroImage === 'true') {
       console.log('Processing hero image upload:', req.file.originalname);
       
-      // Convert image to base64 for immediate display
-      const base64Image = `data:${req.file.mimetype};base64,${req.file.buffer.toString('base64')}`;
-      
-      content.heroImageUrl = base64Image;
-      console.log('Hero image converted to base64');
+      try {
+        // Upload to Supabase
+        const imageUrl = await uploadToSupabase(req.file, 'hero-images');
+        content.heroImageUrl = imageUrl;
+        console.log('Hero image uploaded to Supabase:', imageUrl);
+      } catch (uploadError) {
+        console.error('Error uploading hero image to Supabase:', uploadError);
+        return res.status(500).json({
+          success: false,
+          message: "Failed to upload hero image to Supabase",
+        });
+      }
     }
     
     // Add metadata
@@ -52,14 +59,30 @@ const updateAboutContent = async (req, res) => {
     // Update the content with other fields
     Object.keys(req.body).forEach(key => {
       if (key !== 'updatedBy' && key !== 'heroImage') {
-        content[key] = req.body[key];
+        if (key === 'officials' || key === 'kagawads') {
+          // Merge with existing data to preserve image URLs
+          const existingArray = content[key] || [];
+          const newArray = req.body[key] || [];
+          
+          content[key] = newArray.map((newItem, index) => {
+            const existingItem = existingArray[index] || {};
+            return {
+              ...existingItem, // Preserve existing data (including imageUrl)
+              ...newItem // Override with new data
+            };
+          });
+        } else {
+          content[key] = req.body[key];
+        }
       }
     });
     
     await content.save();
 
-    // Log admin activity
-    await logAdminActivity(req.user.userId, "Updated About Page content");
+    // Log admin activity (only if user exists)
+    if (req.user?.userId) {
+      await logAdminActivity(req.user.userId, "Updated About Page content");
+    }
 
     res.status(200).json({
       success: true,
@@ -102,23 +125,31 @@ const updateHeroImage = async (req, res) => {
     
     console.log('Processing hero image upload:', req.file.originalname);
     
-    // Convert image to base64 for immediate display
-    const base64Image = `data:${req.file.mimetype};base64,${req.file.buffer.toString('base64')}`;
-    
-    content.heroImageUrl = base64Image;
-    content.lastUpdated = new Date();
-    content.updatedBy = req.user?.userId;
-    
-    await content.save();
+    try {
+      // Upload to Supabase
+      const imageUrl = await uploadToSupabase(req.file, 'hero-images');
+      content.heroImageUrl = imageUrl;
+      content.lastUpdated = new Date();
+      content.updatedBy = req.user?.userId;
+      
+      await content.save();
+      console.log('Hero image uploaded to Supabase:', imageUrl);
 
-    // Log admin activity
-    await logAdminActivity(req.user.userId, "Updated hero image");
+      // Log admin activity
+      await logAdminActivity(req.user.userId, "Updated hero image");
 
-    res.status(200).json({
-      success: true,
-      message: "Hero image updated successfully",
-      data: { heroImageUrl: base64Image },
-    });
+      res.status(200).json({
+        success: true,
+        message: "Hero image updated successfully",
+        data: { heroImageUrl: imageUrl },
+      });
+    } catch (uploadError) {
+      console.error('Error uploading hero image to Supabase:', uploadError);
+      return res.status(500).json({
+        success: false,
+        message: "Failed to upload hero image to Supabase",
+      });
+    }
   } catch (error) {
     console.error("Error updating hero image:", error);
     res.status(500).json({
@@ -192,11 +223,20 @@ const addOfficial = async (req, res) => {
     const { type } = req.params; // 'officials' or 'kagawads'
     const officialData = req.body;
     
-    // Handle image upload (convert to base64)
+    // Handle image upload (upload to Supabase)
     if (req.file) {
-      console.log('Converting image to base64 for testing');
-      const base64Image = `data:${req.file.mimetype};base64,${req.file.buffer.toString('base64')}`;
-      officialData.imageUrl = base64Image;
+      console.log('Uploading image to Supabase:', req.file.originalname);
+      try {
+        const imageUrl = await uploadToSupabase(req.file, 'official-images');
+        officialData.imageUrl = imageUrl;
+        console.log('Official image uploaded to Supabase:', imageUrl);
+      } catch (uploadError) {
+        console.error('Error uploading official image to Supabase:', uploadError);
+        return res.status(500).json({
+          success: false,
+          message: "Failed to upload official image to Supabase",
+        });
+      }
     }
     
     let content = await AboutPage.getAboutContent();
@@ -242,6 +282,8 @@ const updateOfficial = async (req, res) => {
     const { type, index } = req.params;
     const officialData = req.body;
     
+    console.log('updateOfficial called:', { type, index, hasFile: !!req.file });
+    
     let content = await AboutPage.getAboutContent();
     
     // Ensure content exists
@@ -249,17 +291,39 @@ const updateOfficial = async (req, res) => {
       content = await AboutPage.create({});
     }
     
-    // Handle image upload (convert to base64)
+    console.log('Content exists:', !!content);
+    console.log('Type exists:', !!content[type]);
+    console.log('Type array length:', content[type]?.length);
+    
+    // Handle image upload (upload to Supabase)
     if (req.file) {
-      console.log('Converting image to base64 for testing');
-      const base64Image = `data:${req.file.mimetype};base64,${req.file.buffer.toString('base64')}`;
-      officialData.imageUrl = base64Image;
+      console.log('Uploading image to Supabase:', req.file.originalname);
+      try {
+        const imageUrl = await uploadToSupabase(req.file, 'official-images');
+        officialData.imageUrl = imageUrl;
+        console.log('Official image uploaded to Supabase:', imageUrl);
+      } catch (uploadError) {
+        console.error('Error uploading official image to Supabase:', uploadError);
+        return res.status(500).json({
+          success: false,
+          message: "Failed to upload official image to Supabase",
+        });
+      }
     }
     
-    if (!content[type] || !content[type][index]) {
+    if (!content[type]) {
+      console.log('Type not found:', type);
       return res.status(404).json({
         success: false,
-        message: "Official not found",
+        message: `Section '${type}' not found`,
+      });
+    }
+    
+    if (!content[type][index]) {
+      console.log('Index not found:', index, 'Array length:', content[type].length);
+      return res.status(404).json({
+        success: false,
+        message: "Official not found at index " + index,
       });
     }
 
@@ -269,8 +333,10 @@ const updateOfficial = async (req, res) => {
     
     await content.save();
 
-    // Log admin activity
-    await logAdminActivity(req.user.userId, `Updated ${type.slice(0, -1)} at index ${index}`);
+    // Log admin activity (only if user exists)
+    if (req.user?.userId) {
+      await logAdminActivity(req.user.userId, `Updated ${type.slice(0, -1)} at index ${index}`);
+    }
 
     res.status(200).json({
       success: true,

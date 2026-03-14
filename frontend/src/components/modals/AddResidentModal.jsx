@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { X, MapPin, ChevronDown, Calendar, Mail, Phone } from "lucide-react";
+import { X, MapPin, ChevronDown, Calendar, Mail, Phone, Eye, EyeOff } from "lucide-react";
 import axiosInstance from "../../components/auth/axiosInstance";
 import { toast } from "react-toastify";
 
@@ -7,6 +7,7 @@ const AddResidentModal = ({ isOpen, onClose, onResidentAdded }) => {
   const [submitting, setSubmitting] = useState(false);
   const [showAddressDropdown, setShowAddressDropdown] = useState(false);
   const [contactType, setContactType] = useState("phone"); // "phone" or "email"
+  const [showPassword, setShowPassword] = useState(false);
   const [formData, setFormData] = useState({
     firstName: "",
     lastName: "",
@@ -54,6 +55,12 @@ const AddResidentModal = ({ isOpen, onClose, onResidentAdded }) => {
     }
   };
 
+  const validatePassword = (password) => {
+    // Password must be at least 8 characters long and contain at least one uppercase letter, one lowercase letter, one number, and one special character
+    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&].{8,}$/;
+    return passwordRegex.test(password);
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setSubmitting(true);
@@ -73,6 +80,13 @@ const AddResidentModal = ({ isOpen, onClose, onResidentAdded }) => {
             ? "Please enter a valid 11-digit phone number" 
             : "Please enter a valid email address"
         );
+        setSubmitting(false);
+        return;
+      }
+
+      // Validate password
+      if (!validatePassword(formData.password)) {
+        toast.error("Password must be at least 8 characters long and contain at least one uppercase letter, one lowercase letter, one number, and one special character (@$!%*?&)");
         setSubmitting(false);
         return;
       }
@@ -102,6 +116,7 @@ const AddResidentModal = ({ isOpen, onClose, onResidentAdded }) => {
         password: "",
       });
       setContactType("phone");
+      setShowPassword(false);
       
       if (onResidentAdded) onResidentAdded();
     } catch (error) {
@@ -336,7 +351,7 @@ const AddResidentModal = ({ isOpen, onClose, onResidentAdded }) => {
                 >
                   <option value="Male">Male</option>
                   <option value="Female">Female</option>
-                  <option value="Other">Other</option>
+                  <option value="LGBTQ+">LGBTQ+</option>
                 </select>
               </div>
             </div>
@@ -345,29 +360,47 @@ const AddResidentModal = ({ isOpen, onClose, onResidentAdded }) => {
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Password *
               </label>
-              <input
-                type="password"
-                name="password"
-                value={formData.password}
-                onChange={handleChange}
-                className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-gray-500 focus:border-transparent caret-black"
-                required
-                minLength="6"
-              />
+              <div className="relative">
+                <input
+                  type={showPassword ? "text" : "password"}
+                  name="password"
+                  value={formData.password}
+                  onChange={handleChange}
+                  className="w-full p-2 pr-10 border border-gray-300 rounded-md focus:ring-2 focus:ring-gray-500 focus:border-transparent caret-black"
+                  required
+                  minLength="8"
+                  pattern="^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&].{8,}$"
+                  title="Password must be at least 8 characters long and contain at least one uppercase letter, one lowercase letter, one number, and one special character (@$!%*?&)"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 focus:outline-none"
+                >
+                  {showPassword ? (
+                    <EyeOff className="w-5 h-5" />
+                  ) : (
+                    <Eye className="w-5 h-5" />
+                  )}
+                </button>
+              </div>
+              <p className="text-xs text-gray-500 mt-1">
+                Password: 8+ chars, 1 uppercase, 1 lowercase, 1 number, 1 special (@$!%*?&)
+              </p>
             </div>
           </div>
-          <div className="flex justify-end space-x-3 mt-6">
+          <div className="flex justify-end space-x-3 mt-6 pt-4 border-t border-gray-200">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50"
+              className="px-6 py-2 text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={submitting}
-              className="px-4 py-2 bg-black text-white rounded-md hover:bg-gray-700 disabled:opacity-50"
+              className="px-6 py-2 bg-black text-white rounded-md hover:bg-gray-700 disabled:opacity-50 transition-colors min-w-[120px]"
             >
               {submitting ? "Adding..." : "Add Resident"}
             </button>

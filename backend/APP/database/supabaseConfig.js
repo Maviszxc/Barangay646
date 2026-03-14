@@ -89,7 +89,7 @@ const uploadToSupabase = async (file, folder = 'about-page') => {
 
     const fileName = `${folder}/${Date.now()}-${file.originalname}`;
     const { data, error } = await client.storage
-      .from('about-images')
+      .from('bms646-app')
       .upload(fileName, file.buffer, {
         contentType: file.mimetype,
         cacheControl: '3600',
@@ -102,7 +102,7 @@ const uploadToSupabase = async (file, folder = 'about-page') => {
 
     // Get public URL
     const { data: { publicUrl } } = client.storage
-      .from('about-images')
+      .from('bms646-app')
       .getPublicUrl(data.path);
 
     return publicUrl;
@@ -126,7 +126,7 @@ const deleteFromSupabase = async (imageUrl) => {
     const filePath = `about-page/${fileName}`;
 
     const { error } = await client.storage
-      .from('about-images')
+      .from('bms646-app')
       .remove([filePath]);
 
     if (error) {

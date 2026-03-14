@@ -130,11 +130,21 @@ const Request = () => {
     }
   };
 
+  const handleViewRequest = (request) => {
+    setViewedRequest(request);
+    setViewModal(true);
+  };
+
+  const handleCloseModal = () => {
+    setViewModal(false);
+    setViewedRequest(null);
+  };
+
   const truncateText = (text, charLimit = 100) => {
-  if (!text) return "N/A";
-  if (text.length <= charLimit) return text;
-  return text.substring(0, charLimit) + ' ...';
-};
+    if (!text) return "N/A";
+    if (text.length <= charLimit) return text;
+    return text.substring(0, charLimit) + ' ...';
+  };
 
   const handleApprove = async (requestId) => {
     try {
@@ -142,7 +152,7 @@ const Request = () => {
       await axiosInstance.put(`/certificate/approve/${requestId}`);
       toast.success("Request approved successfully!");
       await fetchRequests();
-      setViewModal(false);
+      handleCloseModal();
     } catch (error) {
       console.error("Error approving request:", error);
       toast.error("Failed to approve request");
@@ -218,7 +228,7 @@ const Request = () => {
       });
       toast.success(`E-Blotter status updated to ${newStatus}!`);
       await fetchRequests();
-      setViewModal(false);
+      handleCloseModal();
     } catch (error) {
       console.error("Error updating blotter status:", error);
       toast.error("Failed to update blotter status");
@@ -418,6 +428,22 @@ const Request = () => {
 
   return (
     <div className="min-h-screen">
+      <style jsx>{`
+        .custom-scrollbar::-webkit-scrollbar {
+          width: 6px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+          background: #f1f1f1;
+          border-radius: 3px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+          background: #c1c1c1;
+          border-radius: 3px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+          background: #a8a8a8;
+        }
+      `}</style>
       <div className="max-w-7xl mx-auto mt-6">
         <div className="bg-white rounded-lg shadow-md p-6">
           <div className="flex justify-between items-center mb-6">
@@ -597,10 +623,7 @@ const Request = () => {
                 <div
                   key={request.id}
                   className="bg-white rounded-lg shadow-md overflow-hidden border border-gray-200 hover:shadow-lg transition-shadow cursor-pointer"
-                  onClick={() => {
-                    setViewedRequest(request);
-                    setViewModal(true);
-                  }}
+                  onClick={() => handleViewRequest(request)}
                 >
                   <div className="p-5">
                     <div className="flex items-start justify-between">
@@ -756,15 +779,15 @@ const Request = () => {
                         <span className="text-xs text-gray-500 block">
                           Incident:
                         </span>
-                        <div className="text-blue-800">
-                           {truncateText(viewedRequest.certificateData?.eBlotter?.incidentDetails)}
+                        <div className="text-blue-800 break-words overflow-wrap-anywhere max-h-32 overflow-y-auto pr-2 custom-scrollbar">
+                          {viewedRequest.certificateData?.eBlotter?.incidentDetails || "No incident details provided"}
                         </div>
                       </div>
                       <div>
                         <span className="text-xs text-gray-500 block">
                           Involved Parties:
                         </span>
-                        <div className="text-blue-800">
+                        <div className="text-blue-800 break-words">
                           {viewedRequest.certificateData?.eBlotter
                             ?.complainantName || "N/A"}{" "}
                           &{" "}
@@ -863,7 +886,7 @@ const Request = () => {
                     )}
                 </div>
 
-                <div className="flex justify-end gap-2 mt-6">
+                <div className="flex flex-wrap justify-end gap-3 mt-6 pt-4 border-t border-gray-200">
                   {certType === "E-Blotter Complaint" ? (
                     // E-Blotter specific buttons
                     <>
@@ -872,7 +895,7 @@ const Request = () => {
                           <button
                             onClick={() => handleUpdateBlotterStatus(viewedRequest.id, "Approved")}
                             disabled={processingId === viewedRequest.id}
-                            className={`px-4 py-2 rounded-md text-white flex items-center gap-2 ${
+                            className={`px-4 py-2 rounded-md text-white flex items-center gap-2 min-w-[140px] justify-center ${
                               processingId === viewedRequest.id
                                 ? "bg-yellow-300 cursor-not-allowed"
                                 : "bg-yellow-600 hover:bg-yellow-700"
@@ -890,7 +913,7 @@ const Request = () => {
                           <button
                             onClick={() => handleUpdateBlotterStatus(viewedRequest.id, "Resolved")}
                             disabled={processingId === viewedRequest.id}
-                            className={`px-4 py-2 rounded-md text-white flex items-center gap-2 ${
+                            className={`px-4 py-2 rounded-md text-white flex items-center gap-2 min-w-[140px] justify-center ${
                               processingId === viewedRequest.id
                                 ? "bg-green-300 cursor-not-allowed"
                                 : "bg-green-600 hover:bg-green-700"
@@ -911,7 +934,7 @@ const Request = () => {
                         <button
                           onClick={() => handleUpdateBlotterStatus(viewedRequest.id, "Resolved")}
                           disabled={processingId === viewedRequest.id}
-                          className={`px-4 py-2 rounded-md text-white flex items-center gap-2 ${
+                          className={`px-4 py-2 rounded-md text-white flex items-center gap-2 min-w-[140px] justify-center ${
                             processingId === viewedRequest.id
                               ? "bg-green-300 cursor-not-allowed"
                               : "bg-green-600 hover:bg-green-700"
@@ -936,7 +959,7 @@ const Request = () => {
                           <button
                             onClick={() => handleApprove(viewedRequest.id)}
                             disabled={processingId === viewedRequest.id}
-                            className={`px-4 py-2 rounded-md text-white flex items-center gap-2 ${
+                            className={`px-4 py-2 rounded-md text-white flex items-center gap-2 min-w-[100px] justify-center ${
                               processingId === viewedRequest.id
                                 ? "bg-green-300 cursor-not-allowed"
                                 : "bg-green-600 hover:bg-green-700"
@@ -954,7 +977,7 @@ const Request = () => {
                           <button
                             onClick={() => handleRejectClick(viewedRequest.id)}
                             disabled={processingId === viewedRequest.id}
-                            className={`px-4 py-2 rounded-md text-white flex items-center gap-2 ${
+                            className={`px-4 py-2 rounded-md text-white flex items-center gap-2 min-w-[100px] justify-center ${
                               processingId === viewedRequest.id
                                 ? "bg-red-300 cursor-not-allowed"
                                 : "bg-red-600 hover:bg-red-700"
@@ -968,8 +991,8 @@ const Request = () => {
                     </>
                   )}
                   <button
-                    onClick={() => setViewModal(false)}
-                    className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 cursor-pointer"
+                    onClick={handleCloseModal}
+                    className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 cursor-pointer hover:bg-gray-50 min-w-[80px] justify-center"
                   >
                     Close
                   </button>

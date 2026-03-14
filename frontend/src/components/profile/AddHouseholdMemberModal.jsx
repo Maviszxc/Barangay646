@@ -20,6 +20,20 @@ const AddHouseholdMemberModal = ({ onClose, onSuccess }) => {
 
   const [loading, setLoading] = useState(false);
 
+  // Check if current user is head of family
+  const checkHeadOfFamily = () => {
+    const userStr = localStorage.getItem('user');
+    if (!userStr) return false;
+    
+    try {
+      const user = JSON.parse(userStr);
+      return user.isHeadofFamily === true;
+    } catch (error) {
+      console.error('Error parsing user data:', error);
+      return false;
+    }
+  };
+
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData((prev) => ({
@@ -30,6 +44,13 @@ const AddHouseholdMemberModal = ({ onClose, onSuccess }) => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    
+    // Check if user is head of family
+    if (!checkHeadOfFamily()) {
+      toast.error("Only head of family can add household members");
+      onClose();
+      return;
+    }
     
     // Validate required fields
     if (!formData.firstName || !formData.lastName || !formData.email || !formData.phoneNumber || !formData.birthdate) {
