@@ -15,6 +15,8 @@ startAnnouncementCron();
 
 const allowedOrigins = [
   "https://barangay646.vercel.app",
+  "https://barangay646.com",
+  "https://www.barangay646.com",
   "http://localhost:5173",
 ];
 
