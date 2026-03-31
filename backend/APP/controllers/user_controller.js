@@ -601,7 +601,7 @@ const getAllUsers = async (req, res) => {
       status: user.isLoginApproved ? "Approved" : "Pending",
     }));
 
-     const totalCensusCount = await Census.countDocuments();
+     const totalCensusCount = await User.countDocuments({ isLoginApproved: true });
 
     res.status(200).json({
       success: true,

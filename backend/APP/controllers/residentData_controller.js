@@ -742,13 +742,13 @@ const downloadCensusData = async (req, res) => {
   }
 };
 
-// ✅ Get All Census Data for Admin (ORIGINAL FUNCTION)
 // In residentData_controller.js - Update getAllCensusData function
 const getAllCensusData = async (req, res) => {
   try {
-    const { page = 1, limit = 10, search = "" } = req.query;
+    const { page = 1, limit = 1000, search = "", startDate, endDate } = req.query;
 
-    const query = search
+    // Build base query
+    let query = search
       ? {
           $or: [
             { "userId.firstName": { $regex: search, $options: "i" } },
@@ -759,13 +759,27 @@ const getAllCensusData = async (req, res) => {
         }
       : {};
 
+    // Add date filter if provided
+    if (startDate || endDate) {
+      query.createdAt = {};
+      if (startDate) {
+        query.createdAt.$gte = new Date(startDate);
+      }
+      if (endDate) {
+        query.createdAt.$lte = new Date(endDate + 'T23:59:59.999Z'); // Include entire end date
+      }
+    }
+
+    // If no search and requesting all data, get all records
+    const shouldGetAll = !search && limit === 1000;
+    
     const censusData = await Census.find(query)
       .populate(
         "userId",
         "firstName lastName birthdate phoneNumber address houseNumber idImage" // Make sure idImage is included
       )
-      .limit(limit * 1)
-      .skip((page - 1) * limit)
+      .limit(shouldGetAll ? 0 : limit * 1) // 0 means no limit
+      .skip(shouldGetAll ? 0 : (page - 1) * limit)
       .sort({ createdAt: -1 });
 
     const total = await Census.countDocuments(query);
@@ -773,7 +787,7 @@ const getAllCensusData = async (req, res) => {
     res.status(200).json({
       message: "Census data retrieved successfully",
       data: censusData,
-      totalPages: Math.ceil(total / limit),
+      totalPages: shouldGetAll ? 1 : Math.ceil(total / limit),
       currentPage: page,
       total,
     });
@@ -1062,13 +1076,28 @@ const calculateHouseholdGrowth = async () => {
   }
 };
 
-// ✅ Enhanced Household Statistics with Demographic Data (NEW)
+// Enhanced Household Statistics with Demographic Data (NEW)
 const getEnhancedHouseholdStatistics = async (req, res) => {
   try {
+    const { startDate, endDate } = req.query;
+    
+    // Build date filter if provided
+    let dateFilter = {};
+    if (startDate || endDate) {
+      dateFilter.createdAt = {};
+      if (startDate) {
+        dateFilter.createdAt.$gte = new Date(startDate);
+      }
+      if (endDate) {
+        dateFilter.createdAt.$lte = new Date(endDate + 'T23:59:59.999Z'); // Include entire end date
+      }
+    }
+    
     const households = await getHouseholdStatistics();
 
-    // Add demographic breakdown
+    // Add demographic breakdown with date filtering
     const demographicStats = await Census.aggregate([
+      { $match: dateFilter }, // Add date filter here
       {
         $lookup: {
           from: "users",
@@ -1331,7 +1360,21 @@ const getHouseholdGraphData = async (req, res) => {
 // ✅ Enhanced Age Distribution with Modern Grouping (NEW)
 const getEnhancedAgeDistribution = async (req, res) => {
   try {
-    const censusData = await Census.find().populate("userId");
+    const { startDate, endDate } = req.query;
+    
+    // Build date filter if provided
+    let dateFilter = {};
+    if (startDate || endDate) {
+      dateFilter.createdAt = {};
+      if (startDate) {
+        dateFilter.createdAt.$gte = new Date(startDate);
+      }
+      if (endDate) {
+        dateFilter.createdAt.$lte = new Date(endDate + 'T23:59:59.999Z'); // Include entire end date
+      }
+    }
+    
+    const censusData = await Census.find(dateFilter).populate("userId");
 
     // Modern age groups
     const ageGroups = [
@@ -1439,7 +1482,7 @@ const getEnhancedAgeDistribution = async (req, res) => {
       data: {
         chartData,
         summary: distribution.summary,
-        totalResidents: censusData.length,
+        totalResidents: await User.countDocuments({ isLoginApproved: true }),
       },
     });
   } catch (error) {
