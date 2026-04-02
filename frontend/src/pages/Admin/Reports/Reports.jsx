@@ -436,7 +436,7 @@ const Reports = () => {
         ...prev,
         adminTotals: {
           totalUsers: usersRes.data.totalCensusCount || 0,
-          totalLoggedInUsers: loggedInUsers.totalCensusCount || 0,
+          totalLoggedInUsers: loggedInUsers.length || 0,
           totalHouseholds: householdsRes.data.data.totalHouseholds || 0,
           totalRegisteredVoters: registeredVoterStat?.count || 0,
         },
@@ -445,11 +445,13 @@ const Reports = () => {
       setDashboardData((prev) => ({
         ...prev,
         adminTotals: {
+          totalUsers: 0,
           totalLoggedInUsers: 0,
           totalHouseholds: 0,
           totalRegisteredVoters: 0,
         },
       }));
+      console.error("Error fetching admin totals:", error);
     }
   };
 
