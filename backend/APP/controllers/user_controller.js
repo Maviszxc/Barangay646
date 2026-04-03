@@ -578,7 +578,21 @@ const updateNotificationPreferences = async (req, res) => {
 
 const getAllUsers = async (req, res) => {
   try {
-    const users = await User.find({})
+    const { startDate, endDate } = req.query;
+    
+    // Build date filter if provided
+    let dateFilter = {};
+    if (startDate || endDate) {
+      dateFilter.createdAt = {};
+      if (startDate) {
+        dateFilter.createdAt.$gte = new Date(startDate);
+      }
+      if (endDate) {
+        dateFilter.createdAt.$lte = new Date(endDate + 'T23:59:59.999Z'); // Include entire end date
+      }
+    }
+    
+    const users = await User.find(dateFilter)
       .select(
         "firstName lastName phoneNumber birthdate address houseNumber isRegisteredVoter isLoginApproved isVerified idImage createdAt isHeadofFamily"
       )
@@ -601,7 +615,10 @@ const getAllUsers = async (req, res) => {
       status: user.isLoginApproved ? "Approved" : "Pending",
     }));
 
-     const totalCensusCount = await User.countDocuments({ isLoginApproved: true });
+     const totalCensusCount = await User.countDocuments({ 
+      isLoginApproved: true,
+      ...dateFilter 
+    });
 
     res.status(200).json({
       success: true,

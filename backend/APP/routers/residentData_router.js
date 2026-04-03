@@ -134,5 +134,18 @@ router.get(
   residentData.getPopulationDashboard
 );
 
+// ✅ NEW: Civil Status and Occupation Routes
+router.get(
+  "/admin/civil-status",
+  authenticateToken,
+  residentData.getCivilStatusStatistics
+);
+
+router.get(
+  "/admin/occupation",
+  authenticateToken,
+  residentData.getOccupationStatistics
+);
+
 
 module.exports = router;

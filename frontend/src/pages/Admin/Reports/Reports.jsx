@@ -276,6 +276,8 @@ const Reports = () => {
     employmentStats: [],
     voterStats: [],
     genderStats: [],
+    civilStatusStats: [],
+    occupationStats: [],
     allResidents: [],
     // Add these for admin totals
     adminTotals: {
@@ -283,6 +285,7 @@ const Reports = () => {
       totalLoggedInUsers: 0,
       totalHouseholds: 0,
       totalRegisteredVoters: 0,
+      medianAge: 0,
     },
   });
   const [loading, setLoading] = useState(true);
@@ -324,25 +327,32 @@ const Reports = () => {
 
   // Refetch data when date filters change
   useEffect(() => {
-    if (dateRange !== "all" || (startDate && endDate)) {
-      fetchDashboardData({ startDate, endDate });
-    } else if (dateRange === "all") {
-      fetchDashboardData();
-    }
+    const dateParams = { startDate, endDate };
+    
+    console.log('📅 Date filter changed:', { dateRange, startDate, endDate });
+    
+    // Always fetch data when date parameters change
+    fetchDashboardData(dateParams);
+    fetchAdminTotals(dateParams);
   }, [dateRange, startDate, endDate]);
 
   const fetchDashboardData = async (dateParams = {}) => {
     setLoading(true);
     setError(null);
     
-    // Build query string for date parameters
-    const { startDate, endDate } = dateParams;
-    let dateQuery = "";
-    if (startDate && endDate) {
-      dateQuery = `?startDate=${startDate}&endDate=${endDate}`;
-    }
-    
     try {
+      // Build query string for date parameters
+      const { startDate, endDate } = dateParams;
+      let dateQuery = "";
+      if (startDate || endDate) {
+        const params = new URLSearchParams();
+        if (startDate) params.append('startDate', startDate);
+        if (endDate) params.append('endDate', endDate);
+        dateQuery = `?${params.toString()}`;
+      }
+      
+      console.log('🔍 Fetching dashboard data with date query:', dateQuery);
+    
       const [
         householdsRes,
         ageRes,
@@ -351,6 +361,8 @@ const Reports = () => {
         voterRes,
         genderRes,
         allResidentsRes,
+        civilStatusRes,
+        occupationRes,
       ] = await Promise.all([
         axiosInstance.get(`/resident-data/admin/enhanced-households${dateQuery}`),
         axiosInstance.get(`/resident-data/admin/enhanced-age-distribution${dateQuery}`),
@@ -359,6 +371,8 @@ const Reports = () => {
         axiosInstance.get(`/resident-data/admin/voter${dateQuery}`),
         axiosInstance.get(`/resident-data/admin/gender${dateQuery}`),
         axiosInstance.get(`/resident-data/admin/all${dateQuery}`),
+        axiosInstance.get(`/resident-data/admin/civil-status${dateQuery}`),
+        axiosInstance.get(`/resident-data/admin/occupation${dateQuery}`),
       ]);
 
       console.log("Age Distribution Data:", ageRes.data);
@@ -367,7 +381,8 @@ const Reports = () => {
       console.log("Employment Data:", employmentRes.data);
       console.log("Voter Data:", voterRes.data);
       console.log("Gender Data:", genderRes.data);
-      console.log("All Residents Data:", allResidentsRes.data);
+      console.log("Civil Status Data:", civilStatusRes.data);
+      console.log("Occupation Data:", occupationRes.data);
 
       // Transform data for better visualization
       const transformedData = {
@@ -380,6 +395,8 @@ const Reports = () => {
         employmentStats: employmentRes.data.statistics || [],
         voterStats: voterRes.data.statistics || [],
         genderStats: genderRes.data.statistics || [],
+        civilStatusStats: civilStatusRes.data.statistics || [],
+        occupationStats: occupationRes.data.statistics || [],
         allResidents: allResidentsRes.data.data || [],
         statistics: {
           totalResidents: ageRes.data.data?.totalResidents || 0,
@@ -406,8 +423,17 @@ const Reports = () => {
         employmentStats: [],
         voterStats: [],
         genderStats: [],
+        civilStatusStats: [],
+        occupationStats: [],
         allResidents: [],
         statistics: {},
+        adminTotals: {
+          totalUsers: 0,
+          totalLoggedInUsers: 0,
+          totalHouseholds: 0,
+          totalRegisteredVoters: 0,
+          medianAge: 0,
+        },
       });
     } finally {
       setLoading(false);
@@ -415,33 +441,89 @@ const Reports = () => {
   };
 
   // Fetch admin totals for summary cards
-  const fetchAdminTotals = async () => {
+  const fetchAdminTotals = async (dateParams = {}) => {
     try {
-      // Get all users
-      const usersRes = await axiosInstance.get("/user/all-users");
+      console.log('🔍 Fetching admin totals...', dateParams);
+      
+      // Check authentication
+      const token = localStorage.getItem("adminToken") || localStorage.getItem("userToken");
+      console.log('🔐 Authentication token exists:', !!token);
+      if (!token) {
+        console.error('❌ No authentication token found');
+        return;
+      }
+      
+      // Build query string for date parameters
+      const { startDate, endDate } = dateParams;
+      let dateQuery = "";
+      if (startDate || endDate) {
+        const params = new URLSearchParams();
+        if (startDate) params.append('startDate', startDate);
+        if (endDate) params.append('endDate', endDate);
+        dateQuery = `?${params.toString()}`;
+      }
+      
+      console.log('🌐 Making API calls to:', `/user/all-users${dateQuery}`);
+      
+      // Get all users (with date filter if provided)
+      const usersRes = await axiosInstance.get(`/user/all-users${dateQuery}`);
+      console.log('👥 Users response status:', usersRes.status);
+      console.log('👥 Users response data:', usersRes.data);
+      
+      if (!usersRes.data.success && !usersRes.data.users) {
+        console.error('❌ Unexpected users response format');
+        return;
+      }
+      
       const loggedInUsers = usersRes.data.users.filter(
         (u) => u.isLoginApproved
       );
-      // Get total households
+      console.log('✅ Logged in users count:', loggedInUsers.length);
+      
+      // Get total households (with date filter if provided)
       const householdsRes = await axiosInstance.get(
-        "/resident-data/admin/total-households"
+        `/resident-data/admin/total-households${dateQuery}`
       );
-      // Get registered voters
-      const voterRes = await axiosInstance.get("/resident-data/admin/voter");
-      const registeredVoterStat = voterRes.data.statistics.find(
+      console.log('🏠 Households response status:', householdsRes.status);
+      console.log('🏠 Households response data:', householdsRes.data);
+      
+      // Get registered voters (with date filter if provided)
+      const voterRes = await axiosInstance.get(`/resident-data/admin/voter${dateQuery}`);
+      console.log('🗳️ Voter response status:', voterRes.status);
+      console.log('🗳️ Voter response data:', voterRes.data);
+      const registeredVoterStat = voterRes.data.statistics?.find(
         (v) => v._id === "Registered"
       );
 
+      // Get age distribution for median age (with date filter if provided)
+      const ageRes = await axiosInstance.get(`/resident-data/admin/enhanced-age-distribution${dateQuery}`);
+      console.log('📊 Age distribution response status:', ageRes.status);
+      console.log('📊 Age distribution response data:', ageRes.data);
+
+      const totals = {
+        totalUsers: usersRes.data.totalCensusCount || 0,
+        totalLoggedInUsers: loggedInUsers.length || 0,
+        totalHouseholds: householdsRes.data.data?.totalHouseholds || 0,
+        totalRegisteredVoters: registeredVoterStat?.count || 0,
+        medianAge: ageRes.data.data?.summary?.medianAge || 0,
+      };
+      
+      console.log('📊 Calculated totals:', totals);
+
       setDashboardData((prev) => ({
         ...prev,
-        adminTotals: {
-          totalUsers: usersRes.data.totalCensusCount || 0,
-          totalLoggedInUsers: loggedInUsers.length || 0,
-          totalHouseholds: householdsRes.data.data.totalHouseholds || 0,
-          totalRegisteredVoters: registeredVoterStat?.count || 0,
+        adminTotals: totals,
+        ageDistribution: transformAgeData(ageRes.data.data) || {
+          chartData: [],
+          summary: {},
         },
       }));
+      
+      console.log('✅ Admin totals updated successfully');
     } catch (error) {
+      console.error('❌ Error fetching admin totals:', error);
+      console.error('❌ Error details:', error.response?.data || error.message);
+      
       setDashboardData((prev) => ({
         ...prev,
         adminTotals: {
@@ -449,9 +531,9 @@ const Reports = () => {
           totalLoggedInUsers: 0,
           totalHouseholds: 0,
           totalRegisteredVoters: 0,
+          medianAge: 0,
         },
       }));
-      console.error("Error fetching admin totals:", error);
     }
   };
 
@@ -1754,7 +1836,7 @@ const Reports = () => {
       return { labels: [], datasets: [] };
     }
 
-    const labels = civilStats.map(item => item.status || 'Unknown');
+    const labels = civilStats.map(item => item._id || 'Unknown');
     const data = civilStats.map(item => item.count || 0);
     const colors = ['#3b82f6', '#ef4444', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899'];
 
@@ -1774,17 +1856,26 @@ const Reports = () => {
       return { labels: [], datasets: [] };
     }
 
-    const labels = occupationStats.map(item => item.occupation || 'Unknown');
-    const data = occupationStats.map(item => item.count || 0);
-    const colors = ['#06b6d4', '#84cc16', '#f97316', '#a855f7', '#f43f5e', '#6366f1'];
+    // Sort by count and take top 8 for better readability
+    const sortedStats = occupationStats
+      .sort((a, b) => (b.count || 0) - (a.count || 0))
+      .slice(0, 8);
+
+    const labels = sortedStats.map(item => 
+      item._id === 'None' ? 'Unemployed/Student' : (item._id || 'Unknown')
+    );
+    const data = sortedStats.map(item => item.count || 0);
 
     return {
       labels,
       datasets: [{
         data,
-        backgroundColor: colors.slice(0, labels.length),
-        borderWidth: 2,
-        borderColor: '#ffffff',
+        backgroundColor: [
+          '#3b82f6', '#ef4444', '#10b981', '#f59e0b', 
+          '#8b5cf6', '#ec4899', '#06b6d4', '#84cc16'
+        ].slice(0, labels.length),
+        borderWidth: 0,
+        borderRadius: 4,
       }],
     };
   };
@@ -2138,7 +2229,7 @@ const Reports = () => {
               <div>
                 <p className="text-sm font-medium text-gray-600">Median Age</p>
                 <p className="text-3xl font-bold text-gray-900 mt-2">
-                  {dashboardData.ageDistribution.summary?.medianAge || 0}
+                  {dashboardData.adminTotals?.medianAge || dashboardData.ageDistribution.summary?.medianAge || 0}
                 </p>
                 <p className="text-xs text-gray-500 mt-1">years</p>
               </div>
@@ -2515,14 +2606,28 @@ const Reports = () => {
             </div>
             <div className="h-64">
               {occupationChartConfig.labels && occupationChartConfig.labels.length > 0 ? (
-                <Doughnut
+                <Bar
                   data={occupationChartConfig}
                   options={{
                     responsive: true,
                     maintainAspectRatio: false,
+                    indexAxis: 'y',
+                    scales: {
+                      x: {
+                        beginAtZero: true,
+                        grid: {
+                          color: '#f3f4f6',
+                        },
+                      },
+                      y: {
+                        grid: {
+                          display: false,
+                        },
+                      },
+                    },
                     plugins: {
                       legend: {
-                        position: 'bottom',
+                        display: false,
                       },
                     },
                   }}

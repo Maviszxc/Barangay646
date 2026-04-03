@@ -2346,6 +2346,88 @@ const formatMonthForDisplay = (monthString) => {
   return `${monthNames[parseInt(month) - 1]} ${year.substring(2)}`;
 };
 
+// Get Civil Status Statistics
+const getCivilStatusStatistics = async (req, res) => {
+  try {
+    const { startDate, endDate } = req.query;
+    
+    // Build date filter if provided
+    let dateFilter = {};
+    if (startDate || endDate) {
+      dateFilter.createdAt = {};
+      if (startDate) {
+        dateFilter.createdAt.$gte = new Date(startDate);
+      }
+      if (endDate) {
+        dateFilter.createdAt.$lte = new Date(endDate + 'T23:59:59.999Z');
+      }
+    }
+    
+    const civilStatusStats = await Census.aggregate([
+      { $match: dateFilter },
+      {
+        $group: {
+          _id: "$civilStatus",
+          count: { $sum: 1 },
+        },
+      },
+      { $sort: { count: -1 } },
+    ]);
+
+    res.status(200).json({
+      message: "Civil status statistics retrieved successfully",
+      statistics: civilStatusStats,
+    });
+  } catch (error) {
+    console.error("Civil Status Statistics Error:", error);
+    res.status(500).json({
+      message: "Server error",
+      error: error.message,
+    });
+  }
+};
+
+// Get Occupation Statistics
+const getOccupationStatistics = async (req, res) => {
+  try {
+    const { startDate, endDate } = req.query;
+    
+    // Build date filter if provided
+    let dateFilter = {};
+    if (startDate || endDate) {
+      dateFilter.createdAt = {};
+      if (startDate) {
+        dateFilter.createdAt.$gte = new Date(startDate);
+      }
+      if (endDate) {
+        dateFilter.createdAt.$lte = new Date(endDate + 'T23:59:59.999Z');
+      }
+    }
+    
+    const occupationStats = await Census.aggregate([
+      { $match: dateFilter },
+      {
+        $group: {
+          _id: "$occupation",
+          count: { $sum: 1 },
+        },
+      },
+      { $sort: { count: -1 } },
+    ]);
+
+    res.status(200).json({
+      message: "Occupation statistics retrieved successfully",
+      statistics: occupationStats,
+    });
+  } catch (error) {
+    console.error("Occupation Statistics Error:", error);
+    res.status(500).json({
+      message: "Server error",
+      error: error.message,
+    });
+  }
+};
+
 // Export all functions
 module.exports = {
   // Original functions
@@ -2384,5 +2466,8 @@ module.exports = {
   calculateAgeDistribution,
   calculateEmploymentDistribution,
   calculateVoterDistribution,
-  calculateMonthlyGrowth
+  calculateMonthlyGrowth,
+  // ✅ NEW: Civil Status and Occupation Functions
+  getCivilStatusStatistics,
+  getOccupationStatistics
 };
