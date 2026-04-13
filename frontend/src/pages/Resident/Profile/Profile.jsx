@@ -287,6 +287,12 @@ const Profile = () => {
     setShowEditProfile(false);
   };
 
+  // Debug function to check head of family status
+  const debugHeadOfFamily = () => {
+    console.log("User data in Profile:", user);
+    console.log("user.isHeadofFamily:", user.isHeadofFamily);
+  };
+
   const handleAddMemberSuccess = () => {
     // Refetch household info to show the new member
     const fetchHouseholdInfo = async () => {
@@ -602,13 +608,20 @@ const Profile = () => {
               <div className="border-t border-gray-200 pt-4">
                 {/* Add Member Button - Only show for head of family */}
                 {user.isHeadofFamily && (
-                  <div className="mb-6">
+                  <div className="mb-6 flex gap-2">
                     <button
                       onClick={() => setShowAddMemberModal(true)}
                       className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors font-medium"
                     >
                       <UserPlus className="w-4 h-4" />
                       Add Household Member
+                    </button>
+                    {/* Temporary debug button */}
+                    <button
+                      onClick={debugHeadOfFamily}
+                      className="flex items-center gap-2 px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 transition-colors font-medium"
+                    >
+                      Debug Status
                     </button>
                   </div>
                 )}
@@ -1089,6 +1102,7 @@ const Profile = () => {
             <AddHouseholdMemberModal
               onClose={() => setShowAddMemberModal(false)}
               onSuccess={handleAddMemberSuccess}
+              isHeadofFamily={user.isHeadofFamily}
             />
           )}
 

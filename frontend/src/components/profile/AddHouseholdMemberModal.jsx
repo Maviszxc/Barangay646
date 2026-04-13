@@ -4,7 +4,7 @@ import axiosInstance from "../auth/axiosInstance";
 import { toast } from "react-toastify";
 import { X, UserPlus, Phone, Calendar, Users, Briefcase, User } from "lucide-react";
 
-const AddHouseholdMemberModal = ({ onClose, onSuccess }) => {
+const AddHouseholdMemberModal = ({ onClose, onSuccess, isHeadofFamily }) => {
   const [formData, setFormData] = useState({
     firstName: "",
     lastName: "",
@@ -20,20 +20,6 @@ const AddHouseholdMemberModal = ({ onClose, onSuccess }) => {
 
   const [loading, setLoading] = useState(false);
 
-  // Check if current user is head of family
-  const checkHeadOfFamily = () => {
-    const userStr = localStorage.getItem('user');
-    if (!userStr) return false;
-    
-    try {
-      const user = JSON.parse(userStr);
-      return user.isHeadofFamily === true;
-    } catch (error) {
-      console.error('Error parsing user data:', error);
-      return false;
-    }
-  };
-
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData((prev) => ({
@@ -45,8 +31,10 @@ const AddHouseholdMemberModal = ({ onClose, onSuccess }) => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     
+    console.log("isHeadofFamily value in modal:", isHeadofFamily);
+    
     // Check if user is head of family
-    if (!checkHeadOfFamily()) {
+    if (!isHeadofFamily) {
       toast.error("Only head of family can add household members");
       onClose();
       return;
