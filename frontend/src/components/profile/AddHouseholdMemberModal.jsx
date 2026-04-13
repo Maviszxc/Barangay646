@@ -31,8 +31,6 @@ const AddHouseholdMemberModal = ({ onClose, onSuccess, isHeadofFamily }) => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     
-    console.log("isHeadofFamily value in modal:", isHeadofFamily);
-    
     // Check if user is head of family
     if (!isHeadofFamily) {
       toast.error("Only head of family can add household members");
