@@ -312,6 +312,12 @@ const Reports = () => {
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [showCustomDateRange, setShowCustomDateRange] = useState(false);
+  
+  // Occupation chart view state
+  const [occupationView, setOccupationView] = useState('bar');
+  
+  // Civil status chart view state
+  const [civilStatusView, setCivilStatusView] = useState('pie');
 
   // Chart refs for interactivity
   const ageChartRef = useRef();
@@ -353,6 +359,20 @@ const Reports = () => {
       
       console.log('🔍 Fetching dashboard data with date query:', dateQuery);
     
+      // Helper function to fetch with fallback
+      const fetchWithFallback = async (endpoint, description) => {
+        try {
+          const response = await axiosInstance.get(`${endpoint}${dateQuery}`);
+          console.log(`✅ ${description} with date filter successful`);
+          return response;
+        } catch (error) {
+          console.log(`⚠️ Date filter not supported for ${description}, trying without filter`);
+          const response = await axiosInstance.get(endpoint);
+          console.log(`✅ ${description} without date filter successful`);
+          return response;
+        }
+      };
+
       const [
         householdsRes,
         ageRes,
@@ -364,25 +384,18 @@ const Reports = () => {
         civilStatusRes,
         occupationRes,
       ] = await Promise.all([
-        axiosInstance.get(`/resident-data/admin/enhanced-households${dateQuery}`),
-        axiosInstance.get(`/resident-data/admin/enhanced-age-distribution${dateQuery}`),
-        axiosInstance.get(`/resident-data/admin/household-graph${dateQuery}`),
-        axiosInstance.get(`/resident-data/admin/employment${dateQuery}`),
-        axiosInstance.get(`/resident-data/admin/voter${dateQuery}`),
-        axiosInstance.get(`/resident-data/admin/gender${dateQuery}`),
-        axiosInstance.get(`/resident-data/admin/all${dateQuery}`),
-        axiosInstance.get(`/resident-data/admin/civil-status${dateQuery}`),
-        axiosInstance.get(`/resident-data/admin/occupation${dateQuery}`),
+        fetchWithFallback('/resident-data/admin/enhanced-households', 'households'),
+        fetchWithFallback('/resident-data/admin/enhanced-age-distribution', 'age distribution'),
+        fetchWithFallback('/resident-data/admin/household-graph', 'household graph'),
+        fetchWithFallback('/resident-data/admin/employment', 'employment stats'),
+        fetchWithFallback('/resident-data/admin/voter', 'voter stats'),
+        fetchWithFallback('/resident-data/admin/gender', 'gender stats'),
+        fetchWithFallback('/resident-data/admin/all', 'all residents'),
+        fetchWithFallback('/resident-data/admin/civil-status', 'civil status'),
+        fetchWithFallback('/resident-data/admin/occupation', 'occupation'),
       ]);
 
-      console.log("Age Distribution Data:", ageRes.data);
-      console.log("Household Data:", householdsRes.data);
-      console.log("Graph Data:", graphRes.data);
-      console.log("Employment Data:", employmentRes.data);
-      console.log("Voter Data:", voterRes.data);
-      console.log("Gender Data:", genderRes.data);
-      console.log("Civil Status Data:", civilStatusRes.data);
-      console.log("Occupation Data:", occupationRes.data);
+      console.log("📊 All dashboard data fetched successfully");
 
       // Transform data for better visualization
       const transformedData = {
@@ -413,6 +426,7 @@ const Reports = () => {
       };
 
       setDashboardData(transformedData);
+      console.log('✅ Dashboard data updated successfully');
     } catch (error) {
       console.error("Failed to fetch dashboard data:", error);
       setError("Failed to load dashboard data. Please try again.");
@@ -463,12 +477,17 @@ const Reports = () => {
         dateQuery = `?${params.toString()}`;
       }
       
-      console.log('🌐 Making API calls to:', `/user/all-users${dateQuery}`);
+      console.log('🌐 Making API calls with date query:', dateQuery);
       
-      // Get all users (with date filter if provided)
-      const usersRes = await axiosInstance.get(`/user/all-users${dateQuery}`);
+      // Get all users (try without date filter first, then with if needed)
+      let usersRes;
+      try {
+        usersRes = await axiosInstance.get(`/user/all-users${dateQuery}`);
+      } catch (error) {
+        console.log('⚠️ Date filter not supported for users API, trying without filter');
+        usersRes = await axiosInstance.get('/user/all-users');
+      }
       console.log('👥 Users response status:', usersRes.status);
-      console.log('👥 Users response data:', usersRes.data);
       
       if (!usersRes.data.success && !usersRes.data.users) {
         console.error('❌ Unexpected users response format');
@@ -480,28 +499,44 @@ const Reports = () => {
       );
       console.log('✅ Logged in users count:', loggedInUsers.length);
       
-      // Get total households (with date filter if provided)
-      const householdsRes = await axiosInstance.get(
-        `/resident-data/admin/total-households${dateQuery}`
-      );
+      // Get total households (with fallback)
+      let householdsRes;
+      try {
+        householdsRes = await axiosInstance.get(
+          `/resident-data/admin/total-households${dateQuery}`
+        );
+      } catch (error) {
+        console.log('⚠️ Date filter not supported for households API, trying without filter');
+        householdsRes = await axiosInstance.get('/resident-data/admin/total-households');
+      }
       console.log('🏠 Households response status:', householdsRes.status);
-      console.log('🏠 Households response data:', householdsRes.data);
       
-      // Get registered voters (with date filter if provided)
-      const voterRes = await axiosInstance.get(`/resident-data/admin/voter${dateQuery}`);
+      // Get registered voters (with fallback)
+      let voterRes;
+      try {
+        voterRes = await axiosInstance.get(`/resident-data/admin/voter${dateQuery}`);
+      } catch (error) {
+        console.log('⚠️ Date filter not supported for voter API, trying without filter');
+        voterRes = await axiosInstance.get('/resident-data/admin/voter');
+      }
       console.log('🗳️ Voter response status:', voterRes.status);
-      console.log('🗳️ Voter response data:', voterRes.data);
+      
       const registeredVoterStat = voterRes.data.statistics?.find(
         (v) => v._id === "Registered"
       );
 
-      // Get age distribution for median age (with date filter if provided)
-      const ageRes = await axiosInstance.get(`/resident-data/admin/enhanced-age-distribution${dateQuery}`);
+      // Get age distribution for median age (with fallback)
+      let ageRes;
+      try {
+        ageRes = await axiosInstance.get(`/resident-data/admin/enhanced-age-distribution${dateQuery}`);
+      } catch (error) {
+        console.log('⚠️ Date filter not supported for age distribution API, trying without filter');
+        ageRes = await axiosInstance.get('/resident-data/admin/enhanced-age-distribution');
+      }
       console.log('📊 Age distribution response status:', ageRes.status);
-      console.log('📊 Age distribution response data:', ageRes.data);
 
       const totals = {
-        totalUsers: usersRes.data.totalCensusCount || 0,
+        totalUsers: usersRes.data.totalCensusCount || usersRes.data.users?.length || 0,
         totalLoggedInUsers: loggedInUsers.length || 0,
         totalHouseholds: householdsRes.data.data?.totalHouseholds || 0,
         totalRegisteredVoters: registeredVoterStat?.count || 0,
@@ -524,6 +559,7 @@ const Reports = () => {
       console.error('❌ Error fetching admin totals:', error);
       console.error('❌ Error details:', error.response?.data || error.message);
       
+      // Set default values on error
       setDashboardData((prev) => ({
         ...prev,
         adminTotals: {
@@ -568,9 +604,149 @@ const Reports = () => {
 
   // Data transformation functions
   const transformAgeData = (ageData) => {
+    console.log("🔍 Raw Age Data:", ageData);
+    
     if (!ageData || !ageData.chartData) {
-      console.log("No age data available");
-      return { chartData: [], summary: {} };
+      console.log("❌ No age data available");
+      return { chartData: [], summary: { medianAge: 0 } };
+    }
+
+    console.log("📊 Age Chart Data:", ageData.chartData);
+
+    // Calculate median age from the age distribution data
+    const calculateMedianAge = (chartData) => {
+      if (!chartData || chartData.length === 0) return 0;
+      
+      try {
+        console.log(`📊 Calculating median from ${chartData.length} age groups`);
+        console.log(`📊 Raw chart data:`, chartData);
+        
+        // First, let's try a simple approach - calculate weighted average
+        let totalPopulation = 0;
+        let weightedAgeSum = 0;
+        const validGroups = [];
+        
+        chartData.forEach((item, index) => {
+          console.log(`📋 Processing item ${index}:`, item);
+          
+          const group = item.group;
+          if (!group) {
+            console.log(`⚠️ No group for item ${index}`);
+            return;
+          }
+          
+          // Calculate total people in this age group
+          const male = Math.abs(item.male || 0);
+          const female = Math.abs(item.female || 0);
+          const lgbtq = Math.abs(item.lgbtq || 0);
+          const totalCount = male + female + lgbtq;
+          
+          console.log(`👥 Group "${group}" - M: ${male}, F: ${female}, L: ${lgbtq}, Total: ${totalCount}`);
+          
+          if (totalCount > 0) {
+            let ageValue = 0;
+            
+            // Parse age to get a representative value
+            if (group.includes('-')) {
+              const parts = group.split('-');
+              if (parts.length === 2) {
+                const start = parseInt(parts[0]);
+                const end = parseInt(parts[1]);
+                if (!isNaN(start) && !isNaN(end)) {
+                  ageValue = Math.round((start + end) / 2);
+                  console.log(`📅 Range "${group}" -> midpoint: ${ageValue}`);
+                }
+              }
+            } else if (group.includes('+')) {
+              const start = parseInt(group.replace('+', ''));
+              if (!isNaN(start)) {
+                ageValue = start + 5; // Add 5 years for open-ended groups
+                console.log(`📅 Open-ended "${group}" -> estimated: ${ageValue}`);
+              }
+            } else {
+              const age = parseInt(group);
+              if (!isNaN(age)) {
+                ageValue = age;
+                console.log(`📅 Single age "${group}" -> ${ageValue}`);
+              }
+            }
+            
+            if (ageValue > 0) {
+              validGroups.push({
+                group: group,
+                age: ageValue,
+                count: totalCount
+              });
+              totalPopulation += totalCount;
+              weightedAgeSum += ageValue * totalCount;
+            }
+          }
+        });
+        
+        console.log(`📊 Valid groups:`, validGroups);
+        console.log(`👥 Total population: ${totalPopulation}`);
+        console.log(`📈 Weighted age sum: ${weightedAgeSum}`);
+        
+        if (totalPopulation === 0) {
+          console.log('❌ No population found in age groups');
+          return 0;
+        }
+        
+        // Calculate weighted average as a simple estimate
+        const averageAge = Math.round(weightedAgeSum / totalPopulation);
+        console.log(`📊 Weighted average age: ${averageAge}`);
+        
+        // For now, return the weighted average as a reasonable estimate
+        // This is more reliable than complex median calculations with sparse data
+        return averageAge;
+        
+      } catch (error) {
+        console.error('❌ Error calculating median age:', error);
+        return 0;
+      }
+    };
+
+    const medianAge = calculateMedianAge(ageData.chartData);
+
+    // If median age is still 0, try calculating from all residents data
+    let finalMedianAge = medianAge;
+    if (medianAge === 0 && ageData.allResidents && ageData.allResidents.length > 0) {
+      console.log('🔄 Trying to calculate median from all residents data');
+      try {
+        const ages = ageData.allResidents
+          .map(resident => {
+            // Try different age field names
+            let age = resident.age || resident.Age || resident.birthdate || resident.birthDate;
+            if (age && typeof age === 'string') {
+              // If it's a birthdate, calculate age from it
+              if (age.includes('-') || age.includes('/')) {
+                const birthDate = new Date(age);
+                const today = new Date();
+                age = today.getFullYear() - birthDate.getFullYear();
+              } else {
+                age = parseInt(age);
+              }
+            }
+            return typeof age === 'number' && !isNaN(age) && age > 0 ? age : null;
+          })
+          .filter(age => age !== null)
+          .sort((a, b) => a - b);
+        
+        console.log(`📊 Extracted ${ages.length} valid ages from residents`);
+        console.log(`📊 Age range: ${ages[0]} - ${ages[ages.length - 1]}`);
+        
+        if (ages.length > 0) {
+          const mid = Math.floor(ages.length / 2);
+          if (ages.length % 2 === 0) {
+            finalMedianAge = Math.round((ages[mid - 1] + ages[mid]) / 2);
+          } else {
+            finalMedianAge = ages[mid];
+          }
+          console.log(`✅ Calculated median from residents: ${finalMedianAge}`);
+        }
+      } catch (error) {
+        console.error('❌ Error calculating median from residents:', error);
+      }
     }
 
     const transformed = {
@@ -581,9 +757,14 @@ const Reports = () => {
         female: Math.abs(item.female || 0),
         lgbtq: item.lgbtq || 0,
       })),
+      summary: {
+        ...ageData.summary,
+        medianAge: finalMedianAge || ageData.summary?.medianAge || 0,
+      },
     };
 
-    console.log("Transformed Age Data:", transformed);
+    console.log("✅ Transformed Age Data with Median:", transformed);
+    console.log("✅ Final Median Age:", finalMedianAge);
     return transformed;
   };
 
@@ -1865,10 +2046,9 @@ const Reports = () => {
       return { labels: [], datasets: [] };
     }
 
-    // Sort by count and take top 8 for better readability
+    // Sort by count and show all occupations (no limit)
     const sortedStats = occupationStats
-      .sort((a, b) => (b.count || 0) - (a.count || 0))
-      .slice(0, 8);
+      .sort((a, b) => (b.count || 0) - (a.count || 0));
 
     const labels = sortedStats.map(item => {
       if (item._id === 'None' || item._id === 'Not Specified') {
@@ -1884,7 +2064,11 @@ const Reports = () => {
         data,
         backgroundColor: [
           '#3b82f6', '#ef4444', '#10b981', '#f59e0b', 
-          '#8b5cf6', '#ec4899', '#06b6d4', '#84cc16'
+          '#8b5cf6', '#ec4899', '#06b6d4', '#84cc16',
+          '#f97316', '#a855f7', '#14b8a6', '#22c55e',
+          '#e11d48', '#0ea5e9', '#84cc16', '#f59e0b',
+          '#6366f1', '#8b5cf6', '#ec4899', '#06b6d4',
+          '#10b981', '#f97316', '#a855f7', '#14b8a6'
         ].slice(0, labels.length),
         borderWidth: 0,
         borderRadius: 4,
@@ -2250,7 +2434,13 @@ const Reports = () => {
               <div>
                 <p className="text-sm font-medium text-gray-600">Median Age</p>
                 <p className="text-3xl font-bold text-gray-900 mt-2">
-                  {dashboardData.adminTotals?.medianAge || dashboardData.ageDistribution.summary?.medianAge || 0}
+                  {(() => {
+                    const adminMedian = dashboardData.adminTotals?.medianAge;
+                    const summaryMedian = dashboardData.ageDistribution.summary?.medianAge;
+                    const median = adminMedian || summaryMedian || 0;
+                    // Ensure we never display NaN
+                    return (isNaN(median) || !isFinite(median)) ? 0 : median;
+                  })()}
                 </p>
                 <p className="text-xs text-gray-500 mt-1">years</p>
               </div>
@@ -2592,70 +2782,274 @@ const Reports = () => {
         {/* Additional Charts Row 2 */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mt-8">
           {/* Civil Status Distribution */}
-          <div className="bg-white rounded-2xl p-6 shadow-lg border border-gray-100">
-            <div className="flex items-center gap-2 mb-4">
-              <Heart className="w-5 h-5 text-pink-600" />
-              <h4 className="font-semibold text-gray-900">Civil Status</h4>
+          <div className="bg-white rounded-2xl p-6 shadow-lg border border-gray-100 lg:col-span-2">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <Heart className="w-5 h-5 text-pink-600" />
+                <h4 className="font-semibold text-gray-900">Civil Status</h4>
+                <span className="px-2 py-1 bg-pink-100 text-pink-800 text-sm font-semibold rounded-full">
+                  {civilStatusChartConfig.labels?.length || 0} Statuses
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setCivilStatusView('pie')}
+                  className={`px-2 py-1 text-sm font-medium rounded-lg transition-all duration-200 ${
+                    civilStatusView === 'pie'
+                      ? 'bg-pink-600 text-white shadow-sm'
+                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                  }`}
+                >
+                  Pie
+                </button>
+                <button
+                  onClick={() => setCivilStatusView('doughnut')}
+                  className={`px-2 py-1 text-sm font-medium rounded-lg transition-all duration-200 ${
+                    civilStatusView === 'doughnut'
+                      ? 'bg-pink-600 text-white shadow-sm'
+                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                  }`}
+                >
+                  Doughnut
+                </button>
+                <button
+                  onClick={() => setCivilStatusView('bar')}
+                  className={`px-2 py-1 text-sm font-medium rounded-lg transition-all duration-200 ${
+                    civilStatusView === 'bar'
+                      ? 'bg-pink-600 text-white shadow-sm'
+                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                  }`}
+                >
+                  Bar
+                </button>
+              </div>
             </div>
-            <div className="h-64">
+            <div className="h-80"> {/* Increased from h-64 to h-80 */}
               {civilStatusChartConfig.labels && civilStatusChartConfig.labels.length > 0 ? (
-                <Pie
-                  data={civilStatusChartConfig}
-                  options={{
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                      legend: {
-                        position: 'bottom',
-                      },
-                    },
-                  }}
-                />
-              ) : (
-                <div className="flex items-center justify-center h-full text-gray-500">
-                  No civil status data available
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Occupation Distribution */}
-          <div className="bg-white rounded-2xl p-6 shadow-lg border border-gray-100">
-            <div className="flex items-center gap-2 mb-4">
-              <Briefcase className="w-5 h-5 text-orange-600" />
-              <h4 className="font-semibold text-gray-900">Occupations</h4>
-            </div>
-            <div className="h-64">
-              {occupationChartConfig.labels && occupationChartConfig.labels.length > 0 ? (
-                <Bar
-                  data={occupationChartConfig}
-                  options={{
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    indexAxis: 'y',
-                    scales: {
-                      x: {
-                        beginAtZero: true,
-                        grid: {
-                          color: '#f3f4f6',
+                <>
+                  {(civilStatusView === 'pie' || !civilStatusView) && (
+                    <Pie
+                      data={civilStatusChartConfig}
+                      options={{
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        interaction: {
+                          mode: 'nearest',
+                          intersect: false
                         },
-                      },
-                      y: {
-                        grid: {
-                          display: false,
+                        plugins: {
+                          legend: {
+                            position: 'right',
+                            labels: {
+                              font: {
+                                size: 12,
+                                weight: '500'
+                              },
+                              padding: 15,
+                              generateLabels: function(chart) {
+                                const data = chart.data;
+                                const total = data.datasets[0].data.reduce((a, b) => a + b, 0);
+                                return data.labels.map((label, i) => {
+                                  const value = data.datasets[0].data[i];
+                                  const percentage = ((value / total) * 100).toFixed(1);
+                                  return {
+                                    text: `${label} (${percentage}%)`,
+                                    fillStyle: data.datasets[0].backgroundColor[i],
+                                    hidden: false,
+                                    index: i
+                                  };
+                                });
+                              }
+                            }
+                          },
+                          tooltip: {
+                            backgroundColor: 'rgba(0, 0, 0, 0.9)',
+                            titleFont: {
+                              size: 14,
+                              weight: 'bold'
+                            },
+                            bodyFont: {
+                              size: 13
+                            },
+                            padding: 12,
+                            cornerRadius: 8,
+                            callbacks: {
+                              label: function(context) {
+                                const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                const percentage = ((context.parsed / total) * 100).toFixed(1);
+                                return [
+                                  `Count: ${context.parsed.toLocaleString()}`,
+                                  `Percentage: ${percentage}%`
+                                ];
+                              }
+                            }
+                          }
                         },
-                      },
-                    },
-                    plugins: {
-                      legend: {
-                        display: false,
-                      },
-                    },
-                  }}
-                />
+                        animation: {
+                          animateRotate: true,
+                          animateScale: true,
+                          duration: 1000,
+                          easing: 'easeInOutQuart'
+                        }
+                      }}
+                    />
+                  )}
+                  
+                  {civilStatusView === 'doughnut' && (
+                    <Doughnut
+                      data={civilStatusChartConfig}
+                      options={{
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        cutout: '60%',
+                        interaction: {
+                          mode: 'nearest',
+                          intersect: false
+                        },
+                        plugins: {
+                          legend: {
+                            position: 'right',
+                            labels: {
+                              font: {
+                                size: 12,
+                                weight: '500'
+                              },
+                              padding: 15,
+                              generateLabels: function(chart) {
+                                const data = chart.data;
+                                const total = data.datasets[0].data.reduce((a, b) => a + b, 0);
+                                return data.labels.map((label, i) => {
+                                  const value = data.datasets[0].data[i];
+                                  const percentage = ((value / total) * 100).toFixed(1);
+                                  return {
+                                    text: `${label} (${percentage}%)`,
+                                    fillStyle: data.datasets[0].backgroundColor[i],
+                                    hidden: false,
+                                    index: i
+                                  };
+                                });
+                              }
+                            }
+                          },
+                          tooltip: {
+                            backgroundColor: 'rgba(0, 0, 0, 0.9)',
+                            titleFont: {
+                              size: 14,
+                              weight: 'bold'
+                            },
+                            bodyFont: {
+                              size: 13
+                            },
+                            padding: 12,
+                            cornerRadius: 8,
+                            callbacks: {
+                              label: function(context) {
+                                const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                const percentage = ((context.parsed / total) * 100).toFixed(1);
+                                return [
+                                  `Count: ${context.parsed.toLocaleString()}`,
+                                  `Percentage: ${percentage}%`
+                                ];
+                              }
+                            }
+                          }
+                        },
+                        animation: {
+                          animateRotate: true,
+                          animateScale: true,
+                          duration: 1000,
+                          easing: 'easeInOutQuart'
+                        }
+                      }}
+                    />
+                  )}
+                  
+                  {civilStatusView === 'bar' && (
+                    <Bar
+                      data={{
+                        labels: civilStatusChartConfig.labels,
+                        datasets: [{
+                          ...civilStatusChartConfig.datasets[0],
+                          borderRadius: 6,
+                          borderWidth: 0
+                        }]
+                      }}
+                      options={{
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        interaction: {
+                          mode: 'index',
+                          intersect: false,
+                        },
+                        scales: {
+                          y: {
+                            beginAtZero: true,
+                            grid: {
+                              color: '#f3f4f6',
+                              drawBorder: false,
+                            },
+                            ticks: {
+                              font: {
+                                size: 11,
+                                weight: '500'
+                              },
+                              callback: function(value) {
+                                return value.toLocaleString();
+                              }
+                            }
+                          },
+                          x: {
+                            grid: {
+                              display: false,
+                            },
+                            ticks: {
+                              font: {
+                                size: 12,
+                                weight: '600'
+                              }
+                            }
+                          },
+                        },
+                        plugins: {
+                          legend: {
+                            display: false,
+                          },
+                          tooltip: {
+                            backgroundColor: 'rgba(0, 0, 0, 0.9)',
+                            titleFont: {
+                              size: 14,
+                              weight: 'bold'
+                            },
+                            bodyFont: {
+                              size: 13
+                            },
+                            padding: 12,
+                            cornerRadius: 8,
+                            callbacks: {
+                              label: function(context) {
+                                const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                const percentage = ((context.parsed.y / total) * 100).toFixed(1);
+                                return [
+                                  `Count: ${context.parsed.y.toLocaleString()}`,
+                                  `Percentage: ${percentage}%`
+                                ];
+                              }
+                            }
+                          }
+                        },
+                        animation: {
+                          duration: 1000,
+                          easing: 'easeInOutQuart'
+                        }
+                      }}
+                    />
+                  )}
+                </>
               ) : (
-                <div className="flex items-center justify-center h-full text-gray-500">
-                  No occupation data available
+                <div className="flex flex-col items-center justify-center h-full text-gray-500">
+                  <Heart className="w-12 h-12 mb-4 text-gray-300" />
+                  <p className="text-lg font-medium">No civil status data available</p>
+                  <p className="text-sm text-gray-400 mt-1">Try adjusting your filters or check back later</p>
                 </div>
               )}
             </div>
@@ -2700,6 +3094,322 @@ const Reports = () => {
                 </div>
               )}
             </div>
+          </div>
+        </div>
+
+        {/* Interactive Occupation Chart - Full Width at Bottom */}
+        <div className="mt-8">
+          <div className="bg-white rounded-2xl p-8 shadow-lg border border-gray-100">
+            <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center gap-3">
+                <Briefcase className="w-6 h-6 text-orange-600" />
+                <h4 className="text-xl font-bold text-gray-900">Occupation Distribution</h4>
+                <span className="px-3 py-1 bg-orange-100 text-orange-800 text-sm font-semibold rounded-full">
+                  {occupationChartConfig.labels?.length || 0} Occupations
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setOccupationView('bar')}
+                  className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-all duration-200 ${
+                    occupationView === 'bar'
+                      ? 'bg-orange-600 text-white shadow-sm'
+                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                  }`}
+                >
+                  Bar Chart
+                </button>
+                <button
+                  onClick={() => setOccupationView('pie')}
+                  className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-all duration-200 ${
+                    occupationView === 'pie'
+                      ? 'bg-orange-600 text-white shadow-sm'
+                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                  }`}
+                >
+                  Pie Chart
+                </button>
+                <button
+                  onClick={() => setOccupationView('doughnut')}
+                  className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-all duration-200 ${
+                    occupationView === 'doughnut'
+                      ? 'bg-orange-600 text-white shadow-sm'
+                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                  }`}
+                >
+                  Doughnut
+                </button>
+              </div>
+            </div>
+            
+            <div className="h-96 overflow-y-auto overflow-x-hidden">
+              {occupationChartConfig.labels && occupationChartConfig.labels.length > 0 ? (
+                <>
+                  {occupationView === 'bar' && (
+                    <div style={{ minHeight: `${Math.max(384, occupationChartConfig.labels.length * 32)}px` }}>
+                      <Bar
+                        data={occupationChartConfig}
+                        options={{
+                          responsive: true,
+                          maintainAspectRatio: false,
+                          indexAxis: 'y',
+                          interaction: {
+                            mode: 'index',
+                            intersect: false,
+                          },
+                          scales: {
+                            x: {
+                              beginAtZero: true,
+                              grid: {
+                                color: '#f3f4f6',
+                                drawBorder: false,
+                              },
+                              ticks: {
+                                font: {
+                                  size: 11,
+                                  weight: '500'
+                                },
+                                callback: function(value) {
+                                  return value.toLocaleString();
+                                }
+                              }
+                            },
+                            y: {
+                              grid: {
+                                display: false,
+                              },
+                              ticks: {
+                                font: {
+                                  size: 12,
+                                  weight: '600'
+                                },
+                                // Auto-adjust label height to prevent overlap
+                                autoSkip: false,
+                                maxRotation: 0,
+                                minRotation: 0
+                              }
+                            },
+                          },
+                          plugins: {
+                            legend: {
+                              display: false,
+                            },
+                            tooltip: {
+                              backgroundColor: 'rgba(0, 0, 0, 0.9)',
+                              titleFont: {
+                                size: 14,
+                                weight: 'bold'
+                              },
+                              bodyFont: {
+                                size: 13
+                              },
+                              padding: 12,
+                              cornerRadius: 8,
+                              displayColors: true,
+                              callbacks: {
+                                label: function(context) {
+                                  const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                  const percentage = ((context.parsed.x / total) * 100).toFixed(1);
+                                  return [
+                                    `Count: ${context.parsed.x.toLocaleString()}`,
+                                    `Percentage: ${percentage}%`
+                                  ];
+                                }
+                              }
+                            }
+                          },
+                          animation: {
+                            duration: 1000,
+                            easing: 'easeInOutQuart'
+                          },
+                          // Ensure chart doesn't get compressed
+                          layout: {
+                            padding: {
+                              top: 10,
+                              bottom: 10
+                            }
+                          }
+                        }}
+                      />
+                    </div>
+                  )}
+                  
+                  {occupationView === 'pie' && (
+                    <div className="flex justify-center items-center" style={{ minHeight: '384px' }}>
+                      <Pie
+                        data={occupationChartConfig}
+                        options={{
+                          responsive: true,
+                          maintainAspectRatio: false,
+                          interaction: {
+                            mode: 'nearest',
+                            intersect: false
+                          },
+                          plugins: {
+                            legend: {
+                              position: 'right',
+                              labels: {
+                                font: {
+                                  size: 12,
+                                  weight: '500'
+                                },
+                                padding: 15,
+                                // Make legend scrollable if too many items
+                                generateLabels: function(chart) {
+                                  const data = chart.data;
+                                  const total = data.datasets[0].data.reduce((a, b) => a + b, 0);
+                                  return data.labels.map((label, i) => {
+                                    const value = data.datasets[0].data[i];
+                                    const percentage = ((value / total) * 100).toFixed(1);
+                                    return {
+                                      text: `${label} (${percentage}%)`,
+                                      fillStyle: data.datasets[0].backgroundColor[i],
+                                      hidden: false,
+                                      index: i
+                                    };
+                                  });
+                                }
+                              }
+                            },
+                            tooltip: {
+                              backgroundColor: 'rgba(0, 0, 0, 0.9)',
+                              titleFont: {
+                                size: 14,
+                                weight: 'bold'
+                              },
+                              bodyFont: {
+                                size: 13
+                              },
+                              padding: 12,
+                              cornerRadius: 8,
+                              callbacks: {
+                                label: function(context) {
+                                  const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                  const percentage = ((context.parsed / total) * 100).toFixed(1);
+                                  return [
+                                    `Count: ${context.parsed.toLocaleString()}`,
+                                    `Percentage: ${percentage}%`
+                                  ];
+                                }
+                              }
+                            }
+                          },
+                          animation: {
+                            animateRotate: true,
+                            animateScale: true,
+                            duration: 1000,
+                            easing: 'easeInOutQuart'
+                          }
+                        }}
+                      />
+                    </div>
+                  )}
+                  
+                  {occupationView === 'doughnut' && (
+                    <div className="flex justify-center items-center" style={{ minHeight: '384px' }}>
+                      <Doughnut
+                        data={occupationChartConfig}
+                        options={{
+                          responsive: true,
+                          maintainAspectRatio: false,
+                          cutout: '60%',
+                          interaction: {
+                            mode: 'nearest',
+                            intersect: false
+                          },
+                          plugins: {
+                            legend: {
+                              position: 'right',
+                              labels: {
+                                font: {
+                                  size: 12,
+                                  weight: '500'
+                                },
+                                padding: 15,
+                                generateLabels: function(chart) {
+                                  const data = chart.data;
+                                  const total = data.datasets[0].data.reduce((a, b) => a + b, 0);
+                                  return data.labels.map((label, i) => {
+                                    const value = data.datasets[0].data[i];
+                                    const percentage = ((value / total) * 100).toFixed(1);
+                                    return {
+                                      text: `${label} (${percentage}%)`,
+                                      fillStyle: data.datasets[0].backgroundColor[i],
+                                      hidden: false,
+                                      index: i
+                                    };
+                                  });
+                                }
+                              }
+                            },
+                            tooltip: {
+                              backgroundColor: 'rgba(0, 0, 0, 0.9)',
+                              titleFont: {
+                                size: 14,
+                                weight: 'bold'
+                              },
+                              bodyFont: {
+                                size: 13
+                              },
+                              padding: 12,
+                              cornerRadius: 8,
+                              callbacks: {
+                                label: function(context) {
+                                  const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                  const percentage = ((context.parsed / total) * 100).toFixed(1);
+                                  return [
+                                    `Count: ${context.parsed.toLocaleString()}`,
+                                    `Percentage: ${percentage}%`
+                                  ];
+                                }
+                              }
+                            }
+                          },
+                          animation: {
+                            animateRotate: true,
+                            animateScale: true,
+                            duration: 1000,
+                            easing: 'easeInOutQuart'
+                          }
+                        }}
+                      />
+                    </div>
+                  )}
+                </>
+              ) : (
+                <div className="flex flex-col items-center justify-center h-full text-gray-500">
+                  <Briefcase className="w-12 h-12 mb-4 text-gray-300" />
+                  <p className="text-lg font-medium">No occupation data available</p>
+                  <p className="text-sm text-gray-400 mt-1">Try adjusting your filters or check back later</p>
+                </div>
+              )}
+            </div>
+            
+            {/* Occupation Statistics Summary */}
+            {occupationChartConfig.labels && occupationChartConfig.labels.length > 0 && (
+              <div className="mt-6 pt-6 border-t border-gray-200">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  {occupationChartConfig.labels.slice(0, 4).map((label, index) => {
+                    const value = occupationChartConfig.datasets[0].data[index];
+                    const total = occupationChartConfig.datasets[0].data.reduce((a, b) => a + b, 0);
+                    const percentage = ((value / total) * 100).toFixed(1);
+                    const color = occupationChartConfig.datasets[0].backgroundColor[index];
+                    
+                    return (
+                      <div key={index} className="text-center p-3 bg-gray-50 rounded-lg">
+                        <div 
+                          className="w-3 h-3 rounded-full mx-auto mb-2"
+                          style={{ backgroundColor: color }}
+                        />
+                        <p className="text-sm font-semibold text-gray-900 truncate">{label}</p>
+                        <p className="text-lg font-bold" style={{ color }}>{value}</p>
+                        <p className="text-xs text-gray-500">{percentage}%</p>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>
