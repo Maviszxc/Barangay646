@@ -1832,7 +1832,10 @@ const Reports = () => {
 
   // Transform functions for new charts
   const transformCivilStatusData = (civilStats) => {
+    console.log('🔍 Transforming Civil Status Data:', civilStats);
+    
     if (!civilStats || !Array.isArray(civilStats)) {
+      console.log('❌ No civil status data available');
       return { labels: [], datasets: [] };
     }
 
@@ -1840,7 +1843,7 @@ const Reports = () => {
     const data = civilStats.map(item => item.count || 0);
     const colors = ['#3b82f6', '#ef4444', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899'];
 
-    return {
+    const result = {
       labels,
       datasets: [{
         data,
@@ -1849,10 +1852,16 @@ const Reports = () => {
         borderColor: '#ffffff',
       }],
     };
+
+    console.log('✅ Civil Status Chart Config:', result);
+    return result;
   };
 
   const transformOccupationData = (occupationStats) => {
+    console.log('🔍 Transforming Occupation Data:', occupationStats);
+    
     if (!occupationStats || !Array.isArray(occupationStats)) {
+      console.log('❌ No occupation data available');
       return { labels: [], datasets: [] };
     }
 
@@ -1861,12 +1870,15 @@ const Reports = () => {
       .sort((a, b) => (b.count || 0) - (a.count || 0))
       .slice(0, 8);
 
-    const labels = sortedStats.map(item => 
-      item._id === 'None' ? 'Unemployed/Student' : (item._id || 'Unknown')
-    );
+    const labels = sortedStats.map(item => {
+      if (item._id === 'None' || item._id === 'Not Specified') {
+        return 'Not Specified';
+      }
+      return item._id || 'Unknown';
+    });
     const data = sortedStats.map(item => item.count || 0);
 
-    return {
+    const result = {
       labels,
       datasets: [{
         data,
@@ -1878,6 +1890,9 @@ const Reports = () => {
         borderRadius: 4,
       }],
     };
+
+    console.log('✅ Occupation Chart Config:', result);
+    return result;
   };
 
   const transformAgeGroupDistribution = (ageData) => {
@@ -1961,6 +1976,12 @@ const Reports = () => {
     const civilStatusChartConfig = transformCivilStatusData(dashboardData.civilStatusStats);
     const occupationChartConfig = transformOccupationData(dashboardData.occupationStats);
     const ageGroupDistributionConfig = transformAgeGroupDistribution(ageData);
+
+    console.log('📊 Final Chart Configurations:');
+    console.log('Civil Status:', civilStatusChartConfig);
+    console.log('Occupation:', occupationChartConfig);
+    console.log('Dashboard Data - Civil Status:', dashboardData.civilStatusStats);
+    console.log('Dashboard Data - Occupation:', dashboardData.occupationStats);
 
     return {
       ageChartConfig,

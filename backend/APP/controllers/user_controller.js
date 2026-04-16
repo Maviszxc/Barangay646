@@ -620,6 +620,15 @@ const getAllUsers = async (req, res) => {
       ...dateFilter 
     });
 
+    // Also get users without census for reporting
+    const usersWithoutCensus = await User.countDocuments({
+      isLoginApproved: true,
+      alreadyAnswered: { $ne: true },
+      ...dateFilter
+    });
+
+    console.log(`📊 User Statistics: ${totalCensusCount} total approved users, ${usersWithoutCensus} without census`);
+
     res.status(200).json({
       success: true,
       totalCensusCount, // ADD THIS LINE

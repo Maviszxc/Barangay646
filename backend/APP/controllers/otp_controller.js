@@ -8,6 +8,19 @@ const User = require("../models/user_model");
 const OTP = require("../models/otp_ model");
 const sgMail = require("@sendgrid/mail");
 
+// Backup Gmail transporter
+let gmailTransporter = null;
+if (process.env.AUTH_EMAIL && process.env.AUTH_PASS) {
+  gmailTransporter = nodemailer.createTransport({
+    service: "gmail",
+    auth: {
+      user: process.env.AUTH_EMAIL,
+      pass: process.env.AUTH_PASS,
+    },
+  });
+  console.log("|  ✅ Gmail backup transporter configured.");
+}
+
 // let transporter = nodemailer.createTransport({
 //   service: "gmail",
 //   auth: {
@@ -111,10 +124,31 @@ const sendOTP = async (req, res) => {
           };
 
           await sgMail.send(msg);
-          console.log("✅ OTP email sent successfully to:", email);
+          console.log("✅ OTP email sent successfully via SendGrid to:", email);
         } catch (emailError) {
-          console.error("❌ Error sending email:", emailError.response?.body || emailError.message);
-          // Don't throw error, just log it and continue with SMS
+          console.error("❌ SendGrid error:", emailError.response?.body || emailError.message);
+          
+          // Try backup Gmail service
+          if (gmailTransporter) {
+            try {
+              console.log("📧 Attempting backup Gmail service...");
+              const backupMsg = {
+                from: `"Barangay 646" <${process.env.AUTH_EMAIL}>`,
+                to: email,
+                subject: "Barangay 646 Verification Code",
+                text: `Your verification code for Barangay 646 is: ${otpCode}. This code is valid for 5 minutes.`,
+                html: `<p>Your verification code for <strong>Barangay 646</strong> is: <strong>${otpCode}</strong>.</p><p>This code is valid for <strong>5 minutes</strong>.</p>`,
+              };
+              
+              await gmailTransporter.sendMail(backupMsg);
+              console.log("✅ OTP email sent successfully via Gmail backup to:", email);
+            } catch (gmailError) {
+              console.error("❌ Gmail backup also failed:", gmailError.message);
+              console.log("📧 Both email services failed, continuing with SMS only");
+            }
+          } else {
+            console.log("📧 Gmail backup not configured, continuing with SMS only");
+          }
         }
       }
     } else {

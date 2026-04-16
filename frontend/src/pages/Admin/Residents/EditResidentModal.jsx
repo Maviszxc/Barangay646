@@ -37,35 +37,87 @@ const EditResidentModal = ({
   const fetchResidentDetails = async () => {
     try {
       setLoading(true);
+      console.log('🔍 Fetching resident details for:', resident.id);
+      console.log('🔍 Resident object:', resident);
+      
       const response = await axiosInstance.get(
         `/admin/resident/${resident.id}`
       );
+      
+      console.log('📊 Resident details response:', response.data);
+      
+      if (!response.data.success || !response.data.data) {
+        console.error('❌ Invalid response structure:', response.data);
+        toast.error("Failed to load resident details: Invalid response");
+        return;
+      }
+      
       const { user, census } = response.data.data;
+      
+      if (!user) {
+        console.error('❌ No user data in response');
+        toast.error("Failed to load resident details: No user data");
+        return;
+      }
 
-      // Extract first and last name from full name
-      const nameParts =
-        user.firstName && user.lastName
-          ? { firstName: user.firstName, lastName: user.lastName }
-          : splitFullName(user.name || `${user.firstName} ${user.lastName}`);
+      // Extract first and last name from full name or use existing fields
+      const nameParts = {
+        firstName: user.firstName || resident.name?.split(' ')[0] || '',
+        lastName: user.lastName || resident.name?.split(' ').slice(1).join(' ') || ''
+      };
+      
+      console.log('👤 Name parts:', nameParts);
+      console.log('👤 User data:', user);
+      console.log('📋 Census data:', census);
 
-      setFormData({
+      const formData = {
         firstName: nameParts.firstName,
         lastName: nameParts.lastName,
-        phoneNumber: user.phoneNumber || "",
+        phoneNumber: user.phoneNumber || resident.contact || "",
         birthdate: user.birthdate
           ? new Date(user.birthdate).toISOString().split("T")[0]
-          : "",
-        address: user.address || "",
-        gender: user.gender || census?.sex || "",
-        civilStatus: census?.civilStatus || "",
-        occupation: census?.occupation || "",
-        employmentStatus: census?.employmentStatus || "",
-        voterStatus: census?.voterStatus || "",
-        isHeadOfFamily: census?.isHeadOfFamily || false,
-      });
+          : (resident.birthdate ? new Date(resident.birthdate).toISOString().split("T")[0] : ""),
+        address: user.address || resident.address || "",
+        gender: user.gender || census?.sex || resident.gender || "",
+        civilStatus: census?.civilStatus || resident.civilStatus || "",
+        occupation: census?.occupation || resident.occupation || "",
+        employmentStatus: census?.employmentStatus || resident.employmentStatus || "",
+        voterStatus: census?.voterStatus || resident.voterStatus || "",
+        isHeadOfFamily: census?.isHeadOfFamily || resident.isHeadOfFamily || false,
+      };
+      
+      console.log('📝 Form data set to:', formData);
+      setFormData(formData);
     } catch (error) {
-      console.error("Error fetching resident details:", error);
-      toast.error("Failed to load resident details");
+      console.error("❌ Error fetching resident details:", error);
+      console.error("❌ Error response:", error.response?.data);
+      
+      // Fallback to using resident data if API fails
+      console.log('🔄 Using fallback data from resident object');
+      const nameParts = resident.name ? resident.name.split(' ') : ['', ''];
+      const lastName = nameParts.pop() || "";
+      const firstName = nameParts.join(' ') || "";
+      
+      const fallbackFormData = {
+        firstName: firstName,
+        lastName: lastName,
+        phoneNumber: resident.contact || "",
+        birthdate: resident.birthdate ? new Date(resident.birthdate).toISOString().split("T")[0] : "",
+        address: resident.address || "",
+        gender: resident.gender || "",
+        civilStatus: resident.civilStatus || "",
+        occupation: resident.occupation || "",
+        employmentStatus: resident.employmentStatus || "",
+        voterStatus: resident.voterStatus || "",
+        isHeadOfFamily: resident.isHeadOfFamily || false,
+      };
+      
+      console.log('📝 Fallback form data:', fallbackFormData);
+      setFormData(fallbackFormData);
+      
+      if (error.response?.status !== 404) {
+        toast.error("Using cached data - some details may not be current");
+      }
     } finally {
       setLoading(false);
     }
@@ -151,10 +203,15 @@ const EditResidentModal = ({
 
     try {
       setLoading(true);
+      console.log('🔧 Submitting edit for resident:', resident.id);
+      console.log('📝 Form data being sent:', formData);
+      
       const response = await axiosInstance.put(
         `/admin/resident/${resident.id}`,
         formData
       );
+
+      console.log('✅ Edit response:', response.data);
 
       if (response.data.success) {
         toast.success("Resident updated successfully");

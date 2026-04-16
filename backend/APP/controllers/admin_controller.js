@@ -629,9 +629,14 @@ const updateResident = async (req, res) => {
     const { id } = req.params;
     const updateData = { ...req.body };
 
+    console.log('🔧 Backend: Updating resident:', id);
+    console.log('📝 Backend: Update data received:', updateData);
+    console.log('👤 Backend: Update from admin:', req.user.userId);
+
     // Convert birthdate to Date object if provided
     if (updateData.birthdate) {
       updateData.birthdate = new Date(updateData.birthdate);
+      console.log('📅 Backend: Birthdate converted to:', updateData.birthdate);
     }
 
     // Update user data
@@ -649,38 +654,76 @@ const updateResident = async (req, res) => {
     );
 
     if (!updatedUser) {
+      console.log('❌ Backend: User not found for update:', id);
       return res.status(404).json({
         success: false,
         message: "User not found",
       });
     }
 
-    // Update census data
+    console.log('✅ Backend: User updated successfully:', {
+      id: updatedUser._id,
+      name: `${updatedUser.firstName} ${updatedUser.lastName}`,
+      phone: updatedUser.phoneNumber,
+      address: updatedUser.address
+    });
+
+    // Update or create census data
+    const censusUpdateData = {
+      fullName: `${updateData.firstName} ${updateData.lastName}`,
+      birthdate: updateData.birthdate,
+      sex: updateData.gender,
+      civilStatus: updateData.civilStatus,
+      occupation: updateData.occupation,
+      employmentStatus: updateData.employmentStatus,
+      voterStatus: updateData.voterStatus,
+      isHeadOfFamily: updateData.isHeadOfFamily,
+    };
+
+    console.log('📋 Backend: Census update data:', censusUpdateData);
+
     const updatedCensus = await Census.findOneAndUpdate(
       { userId: id },
-      {
-        fullName: `${updateData.firstName} ${updateData.lastName}`,
-        birthdate: updateData.birthdate,
-        sex: updateData.gender,
-        civilStatus: updateData.civilStatus,
-        occupation: updateData.occupation,
-        employmentStatus: updateData.employmentStatus,
-        voterStatus: updateData.voterStatus,
-        isHeadOfFamily: updateData.isHeadOfFamily,
-      },
-      { new: true, runValidators: true }
+      censusUpdateData,
+      { new: true, runValidators: true, upsert: true }
     );
 
-    res.json({
+    console.log('✅ Backend: Census updated:', updatedCensus ? {
+      id: updatedCensus._id,
+      fullName: updatedCensus.fullName,
+      civilStatus: updatedCensus.civilStatus,
+      occupation: updatedCensus.occupation
+    } : 'Created new census record');
+
+    const responseData = {
       success: true,
       message: "Resident updated successfully",
       data: {
-        user: updatedUser,
-        census: updatedCensus,
+        user: {
+          id: updatedUser._id,
+          firstName: updatedUser.firstName,
+          lastName: updatedUser.lastName,
+          phoneNumber: updatedUser.phoneNumber,
+          email: updatedUser.email,
+          birthdate: updatedUser.birthdate,
+          address: updatedUser.address,
+          houseNumber: updatedUser.houseNumber,
+          gender: updatedUser.gender,
+          isRegisteredVoter: updatedUser.isRegisteredVoter,
+          accountStatus: updatedUser.accountStatus
+        },
+        census: updatedCensus
       },
-    });
+    };
+
+    console.log('✅ Backend: Sending success response for resident update');
+    res.json(responseData);
   } catch (error) {
-    console.error("Error updating resident:", error);
+    console.error("❌ Backend: Error updating resident:", error);
+    console.error("❌ Backend: Error details:", {
+      message: error.message,
+      stack: error.stack
+    });
     res.status(500).json({
       success: false,
       message: "Error updating resident",
@@ -743,26 +786,67 @@ const deleteResident = async (req, res) => {
 const getResidentDetails = async (req, res) => {
   try {
     const { id } = req.params;
+    console.log('🔍 Backend: Fetching resident details for ID:', id);
+    console.log('🔍 Backend: Request from admin:', req.user.userId);
 
     const user = await User.findById(id).select("-password");
     if (!user) {
+      console.log('❌ Backend: User not found:', id);
       return res.status(404).json({
         success: false,
         message: "User not found",
       });
     }
 
-    const censusData = await Census.findOne({ userId: id });
+    console.log('👤 Backend: User found:', {
+      id: user._id,
+      name: `${user.firstName} ${user.lastName}`,
+      email: user.email,
+      phone: user.phoneNumber,
+      address: user.address,
+      birthdate: user.birthdate,
+      gender: user.gender
+    });
 
-    res.json({
+    const censusData = await Census.findOne({ userId: id });
+    console.log('� Backend: Census data found:', censusData ? 'Yes' : 'No');
+    if (censusData) {
+      console.log('📋 Backend: Census details:', {
+        fullName: censusData.fullName,
+        sex: censusData.sex,
+        civilStatus: censusData.civilStatus,
+        occupation: censusData.occupation,
+        employmentStatus: censusData.employmentStatus,
+        voterStatus: censusData.voterStatus,
+        isHeadOfFamily: censusData.isHeadOfFamily
+      });
+    }
+
+    const responseData = {
       success: true,
       data: {
-        user: user,
-        census: censusData,
-      },
-    });
+        user: {
+          id: user._id,
+          firstName: user.firstName,
+          lastName: user.lastName,
+          phoneNumber: user.phoneNumber,
+          email: user.email,
+          birthdate: user.birthdate,
+          address: user.address,
+          houseNumber: user.houseNumber,
+          gender: user.gender,
+          isRegisteredVoter: user.isRegisteredVoter,
+          accountStatus: user.accountStatus,
+          idImage: user.idImage
+        },
+        census: censusData
+      }
+    };
+
+    console.log('✅ Backend: Sending response with user and census data');
+    res.json(responseData);
   } catch (error) {
-    console.error("Error fetching resident details:", error);
+    console.error("❌ Backend: Error fetching resident details:", error);
     res.status(500).json({
       success: false,
       message: "Error fetching resident details",

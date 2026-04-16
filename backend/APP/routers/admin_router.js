@@ -17,12 +17,11 @@ router.put("/edit-profile", authenticateToken, adminController.updateAdminProfil
 router.post("/add-resident", authenticateToken, adminController.addResident);
 router.put('/:userId/account-status', adminController.updateAccountStatus);
 // Add these routes to your existing router
-router.get('/resident/:id', adminController.getResidentDetails);
-router.put('/resident/:id',  adminController.updateResident);
-router.delete('/resident/:id', adminController.deleteResident);
+router.get('/resident/:id', authenticateToken, adminController.getResidentDetails);
+router.put('/resident/:id', authenticateToken, adminController.updateResident);
+router.delete('/resident/:id', authenticateToken, adminController.deleteResident);
 
 router.get("/monthly-requests", adminController.getMonthlyRequests);
 router.get("/monthly-requests/:year", adminController.getMonthlyRequestsByYear);
-
 
 module.exports = router;

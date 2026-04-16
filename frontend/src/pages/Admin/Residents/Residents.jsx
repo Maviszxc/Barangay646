@@ -151,11 +151,13 @@ const handleDeleteResident = async (resident) => {
       const formattedResidents = await Promise.all(
         response.data.data.map(async (user) => {
           try {
+            console.log('🔍 Processing user:', user._id, user.firstName, user.lastName);
             // Fetch census data for each user
             const censusResponse = await axiosInstance.get(
               `/resident-data/admin/user/${user._id}`
             );
             const censusData = censusResponse.data.data;
+            console.log('📋 Census data for', user.firstName, ':', censusData);
 
             return {
               id: user._id,
@@ -171,13 +173,13 @@ const handleDeleteResident = async (resident) => {
               gender: censusData?.sex || user.gender || "Not Specified",
               isRegisteredVoter: user.isRegisteredVoter,
               accountStatus: user.accountStatus || "Active",
-              // Add census data
-              voterStatus: censusData?.voterStatus || "Not Specified",
+              // Add census data with proper fallbacks
+              voterStatus: censusData?.voterStatus || "Not Registered",
               occupation: censusData?.occupation || "Not Specified",
               employmentStatus: censusData?.employmentStatus || "Not Specified",
               civilStatus: censusData?.civilStatus || "Not Specified",
               // Add sex specifically for debugging
-              sex: censusData?.sex || "Not Available",
+              sex: censusData?.sex || user.gender || "Not Available",
               isHeadOfFamily: censusData?.isHeadOfFamily || false,
             };
           } catch (error) {
@@ -185,6 +187,7 @@ const handleDeleteResident = async (resident) => {
               `Error fetching census data for user ${user._id}:`,
               error
             );
+            // Return user data even if census fails
             return {
               id: user._id,
               name: `${user.firstName} ${user.lastName}`,
@@ -198,11 +201,11 @@ const handleDeleteResident = async (resident) => {
               gender: user.gender || "Not Specified",
               isRegisteredVoter: user.isRegisteredVoter,
               accountStatus: user.accountStatus || "Active",
-              voterStatus: "Not Available",
-              occupation: "Not Available",
-              employmentStatus: "Not Available",
-              civilStatus: "Not Available",
-              sex: "Not Available",
+              voterStatus: "Not Registered",
+              occupation: "Not Specified",
+              employmentStatus: "Not Specified",
+              civilStatus: "Not Specified",
+              sex: user.gender || "Not Available",
               isHeadOfFamily: false,
             };
           }

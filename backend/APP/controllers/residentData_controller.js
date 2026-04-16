@@ -2363,7 +2363,8 @@ const getCivilStatusStatistics = async (req, res) => {
       }
     }
     
-    const civilStatusStats = await Census.aggregate([
+    // Get civil status from users who completed census
+    const civilStatusFromCensus = await Census.aggregate([
       { $match: dateFilter },
       {
         $group: {
@@ -2371,12 +2372,39 @@ const getCivilStatusStatistics = async (req, res) => {
           count: { $sum: 1 },
         },
       },
-      { $sort: { count: -1 } },
     ]);
+
+    // Get users without census data
+    const usersWithoutCensus = await User.countDocuments({
+      isLoginApproved: true,
+      alreadyAnswered: { $ne: true },
+      ...dateFilter
+    });
+
+    // Combine results
+    let combinedStats = [...civilStatusFromCensus];
+    
+    // Add users without census as "Not Specified"
+    if (usersWithoutCensus > 0) {
+      const existingNotSpecified = combinedStats.find(stat => stat._id === 'Not Specified');
+      if (existingNotSpecified) {
+        existingNotSpecified.count += usersWithoutCensus;
+      } else {
+        combinedStats.push({
+          _id: 'Not Specified',
+          count: usersWithoutCensus
+        });
+      }
+    }
+
+    // Sort by count
+    combinedStats.sort((a, b) => b.count - a.count);
+
+    console.log(`📊 Civil Status Stats: ${combinedStats.length} categories, ${usersWithoutCensus} users without census`);
 
     res.status(200).json({
       message: "Civil status statistics retrieved successfully",
-      statistics: civilStatusStats,
+      statistics: combinedStats,
     });
   } catch (error) {
     console.error("Civil Status Statistics Error:", error);
@@ -2404,7 +2432,8 @@ const getOccupationStatistics = async (req, res) => {
       }
     }
     
-    const occupationStats = await Census.aggregate([
+    // Get occupation from users who completed census
+    const occupationFromCensus = await Census.aggregate([
       { $match: dateFilter },
       {
         $group: {
@@ -2412,12 +2441,39 @@ const getOccupationStatistics = async (req, res) => {
           count: { $sum: 1 },
         },
       },
-      { $sort: { count: -1 } },
     ]);
+
+    // Get users without census data
+    const usersWithoutCensus = await User.countDocuments({
+      isLoginApproved: true,
+      alreadyAnswered: { $ne: true },
+      ...dateFilter
+    });
+
+    // Combine results
+    let combinedStats = [...occupationFromCensus];
+    
+    // Add users without census as "Not Specified"
+    if (usersWithoutCensus > 0) {
+      const existingNotSpecified = combinedStats.find(stat => stat._id === 'Not Specified' || stat._id === 'None');
+      if (existingNotSpecified) {
+        existingNotSpecified.count += usersWithoutCensus;
+      } else {
+        combinedStats.push({
+          _id: 'Not Specified',
+          count: usersWithoutCensus
+        });
+      }
+    }
+
+    // Sort by count and take top 8
+    combinedStats.sort((a, b) => b.count - a.count);
+
+    console.log(`📊 Occupation Stats: ${combinedStats.length} categories, ${usersWithoutCensus} users without census`);
 
     res.status(200).json({
       message: "Occupation statistics retrieved successfully",
-      statistics: occupationStats,
+      statistics: combinedStats,
     });
   } catch (error) {
     console.error("Occupation Statistics Error:", error);
