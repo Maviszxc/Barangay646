@@ -1089,6 +1089,7 @@ const Profile = () => {
             <AddHouseholdMemberModal
               onClose={() => setShowAddMemberModal(false)}
               onSuccess={handleAddMemberSuccess}
+              isHeadofFamily={user.isHeadofFamily}
             />
           )}
 
